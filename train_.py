@@ -28,13 +28,13 @@ reduction_factor = 4
 # Load inside a TF dataset
 
 # Load inside a TF dataset
-dataset = tf.data.Dataset.from_tensor_slices(images)
-val_dataset = tf.data.Dataset.from_tensor_slices(val_images)
+dataset = tf.data.Dataset.from_tensor_slices((paths, images))
+val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
 
 print(f'There are {len(dataset)} training images.')
 print(f'There are {len(val_dataset)} validation images.')
 
-def process_path(image_path):
+def process_path(image_path, image_name):
     # Convert the dataset as:
     # (path) --> (image, label [str], input_len, label_len), 0
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
