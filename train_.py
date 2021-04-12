@@ -133,8 +133,8 @@ def ctc_lambda_func(args):
     # the 2 is critical here since the first couple outputs of the RNN
     # tend to be garbage:
     iy_pred = iy_pred[:, 2:, :]  # no such influence
-    # return K.ctc_batch_cost(ilabels, tf.nn.softmax(iy_pred, 2), (iinput_length - 2), ilabel_length)
-    return tf.reduce_mean(tf.nn.ctc_loss(ilabels, iy_pred, ilabel_length, (iinput_length - 2), logits_time_major=False, blank_index=-1))
+    return K.ctc_batch_cost(ilabels, tf.nn.softmax(iy_pred, 2), (iinput_length - 2), ilabel_length)
+    # return tf.reduce_mean(tf.nn.ctc_loss(ilabels, iy_pred, ilabel_length, (iinput_length - 2), logits_time_major=False, blank_index=-1))
 
 
 # The layer simply outputs the loss
@@ -144,8 +144,8 @@ ctc_loss = Lambda(ctc_lambda_func, output_shape=(1,), name='ctc')([pred, labels,
 # Building a custom training loop (or overriding train_step) would be a much better solution).
 # Basically, this model takes all the inputs and outputs the CTC loss.
 training_model = Model(inputs=[input_img, labels, input_length, label_length], outputs=[ctc_loss], name="end2end_ctc_loss_model")
-# opt = Adam()
-opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
+opt = Adam()
+# opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
 
 # Again, this can be improved... The first parameter here is a sequence of zeros, that we returned in our generator. The second parameter (the output of training_model) is the actual loss.
 training_model.compile(loss={'ctc': lambda _, ctc_loss: ctc_loss}, optimizer=opt)
@@ -165,5 +165,5 @@ lr_reducer = ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001
 earlyStopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, verbose=0, restore_best_weights=True, mode='min') 
 default_callbacks = default_callbacks + [earlyStopping]
 
-history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=1, callbacks=default_callbacks)
+history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=5, callbacks=default_callbacks)
 
