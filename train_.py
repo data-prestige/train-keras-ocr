@@ -9,6 +9,11 @@ from tensorflow.keras import Model, Sequential
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam, SGD
 
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
+
+    
 data_dir = Path("../images/")
 validation_lp = Path("../validation/")
 
