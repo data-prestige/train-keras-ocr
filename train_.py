@@ -9,7 +9,7 @@ from tensorflow.keras import Model, Sequential
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam, SGD
 
-data_dir = Path("../images2/")
+data_dir = Path("../images/")
 # data_dir = Path("../chinese_lp/")
 validation_lp = Path("../validation/")
 
