@@ -5,8 +5,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers.experimental.preprocessing import RandomRotation, RandomContrast
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Dense, Dropout, Bidirectional, LSTM, Layer, BatchNormalization, Lambda
-from tensorflow.keras import Model
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Dense, Dropout, Bidirectional, LSTM, Layer, BatchNormalization, Lambda, add, concatenate
+from tensorflow.keras import Model, Sequential
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam, SGD
 
