@@ -129,8 +129,8 @@ def ctc_lambda_func(args):
     # the 2 is critical here since the first couple outputs of the RNN
     # tend to be garbage:
     iy_pred = iy_pred[:, 2:, :]  # no such influence
-    # return K.ctc_batch_cost(ilabels, tf.nn.softmax(iy_pred, 2), iinput_length - 2, ilabel_length)
-    return tf.reduce_mean(tf.nn.ctc_loss(ilabels, iy_pred, (iinput_length - 2), ilabel_length, logits_time_major=False, blank_index=-1))
+    return K.ctc_batch_cost(ilabels, tf.nn.softmax(iy_pred, 2), (iinput_length - 2), ilabel_length)
+    # return tf.reduce_mean(tf.nn.ctc_loss(ilabels, iy_pred, (iinput_length - 2), ilabel_length, logits_time_major=False, blank_index=-1))
 
 
 # The layer simply outputs the loss
