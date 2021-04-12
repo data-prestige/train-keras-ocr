@@ -147,7 +147,7 @@ opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
 training_model.compile(loss={'ctc': lambda _, ctc_loss: ctc_loss}, optimizer=opt)
 
 # For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
-train_dataset = dataset.shuffle(1000).padded_batch(32)
+train_dataset = dataset.shuffle(500).padded_batch(32)
 val_dataset = val_dataset.padded_batch(32)
 
 default_callbacks = []
