@@ -61,21 +61,21 @@ def process_path(image_path, image_name):
 
 
 # Apply the preprocessing to each image
-dataset = dataset.map(process_path)
-val_dataset = val_dataset.map(process_path)
+dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 # Now we build the dictionary of characters.
 # I am assuming every character we have is valid, but this can be changed accordingly.
 lookup = tf.keras.layers.experimental.preprocessing.StringLookup(
     num_oov_indices=0, mask_token=None,
 )
-lookup.adapt(dataset.map(lambda xb, _: xb[1]))  # Note: xb[1] is the label
+lookup.adapt(dataset.map(lambda xb, _: xb[1], num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE))  # Note: xb[1] is the label
 
 def convert_string(xb, yb):
     # Simple preprocessing to apply the StringLookup to the label
     return (xb[0], lookup(xb[1]), xb[2], xb[3]), yb
 
-dataset = dataset.map(convert_string)
-val_dataset = val_dataset.map(convert_string)
+dataset = dataset.map(convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+val_dataset = val_dataset.map(convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
 augment = Sequential([
     RandomContrast(0.1),
