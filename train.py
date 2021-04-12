@@ -93,15 +93,15 @@ earlyStopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, 
 default_callbacks = default_callbacks + [earlyStopping]
 history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=1, callbacks=default_callbacks)
 
+inv_lookup = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary=lookup.get_vocabulary(), invert=True, mask_token=None)
 
 for (xb, yb, xb_len, yb_len), _ in val_dataset:
     print(yb)
+    y_pred = prediction_model.predict(xb)
+    y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimension and remove the first two time-steps
+    (y_decoded, _) = tf.nn.ctc_greedy_decoder(y_pred, sequence_length=tf.ones(y_pred.shape[1], dtype=tf.int32)*y_pred.shape[0])
+    y_decoded_text = inv_lookup(y_decoded[0])
+    results = tf.sparse.to_dense(y_decoded_text)
+    print(results)
     break
 # Create the inverse lookup
-inv_lookup = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary=lookup.get_vocabulary(), invert=True, mask_token=None)
-y_pred = prediction_model.predict(xb)
-y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimension and remove the first two time-steps
-(y_decoded, _) = tf.nn.ctc_greedy_decoder(y_pred, sequence_length=tf.ones(y_pred.shape[1], dtype=tf.int32)*y_pred.shape[0])
-y_decoded_text = inv_lookup(y_decoded[0])
-results = tf.sparse.to_dense(y_decoded_text)
-print(results)
