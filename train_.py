@@ -16,8 +16,8 @@ validation_lp = Path("../validation/")
 _jpg = "*.jpg"
 # Find all the images inside the folder (only the name)
 # Split into folder and name
-paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
-paths, images = list(paths), list(images)
+_, paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
+_, paths, images = list(paths), list(images)
 val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
 val_paths, val_images = list(val_paths), list(val_images)
 
