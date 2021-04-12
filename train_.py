@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from tensorflow.keras.layers.experimental.preprocessing import RandomRotation, RandomContrast
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Dense, Dropout, Bidirectional, LSTM, Layer, BatchNormalization, Lambda
 from tensorflow.keras import Model
@@ -83,12 +84,11 @@ def convert_string(xb, yb):
 dataset = dataset.map(convert_string)
 val_dataset = val_dataset.map(convert_string)
 
-
 augment = Sequential([
     RandomContrast(0.1),
     RandomRotation(0.1)
 ])
-xb_augm = augment(xb)
+
 n_output = len(lookup.get_vocabulary())
 # Model for prediction
 input_img = Input((img_width, img_height, 1))
