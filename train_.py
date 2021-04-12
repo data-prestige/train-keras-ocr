@@ -133,8 +133,8 @@ def ctc_lambda_func(args):
     # the 2 is critical here since the first couple outputs of the RNN
     # tend to be garbage:
     iy_pred = iy_pred[:, 2:, :]  # no such influence
-    return K.ctc_batch_cost(ilabels, tf.nn.softmax(iy_pred, 2), (iinput_length - 2), ilabel_length)
-    # return tf.reduce_mean(tf.nn.ctc_loss(ilabels, iy_pred, ilabel_length, (iinput_length - 2), logits_time_major=False, blank_index=-1))
+    # return K.ctc_batch_cost(ilabels, tf.nn.softmax(iy_pred, 2), (iinput_length - 2), ilabel_length)
+    return tf.reduce_mean(tf.nn.ctc_loss(ilabels, iy_pred, ilabel_length, (iinput_length - 2), logits_time_major=False, blank_index=-1))
 
 
 # The layer simply outputs the loss
@@ -167,3 +167,13 @@ default_callbacks = default_callbacks + [earlyStopping]
 
 history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=5, callbacks=default_callbacks)
 
+for (xb, yb, xb_len, yb_len), _ in val_dataset:
+    print(yb)
+    break
+# Create the inverse lookup
+inv_lookup = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary=lookup.get_vocabulary(), invert=True, mask_token=None)
+y_pred = prediction_model.predict(xb)
+y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimension and remove the first two time-steps
+(y_decoded, _) = tf.nn.ctc_greedy_decoder(y_pred, sequence_length=tf.ones(y_pred.shape[1], dtype=tf.int32)*y_pred.shape[0])
+y_decoded_text = inv_lookup(y_decoded[0])
+tf.sparse.to_dense(y_decoded_text)
