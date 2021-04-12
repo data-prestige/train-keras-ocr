@@ -1,177 +1,107 @@
-
-import os
-import platform
-import re
-import shutil
-import pdb
-import glob
-import cv2
-import timeit
-import numpy as np
-import matplotlib.pyplot as plt
-
+import glob, os
 from pathlib import Path
-from collections import Counter
-
-from preprocessing import Preprocessing
 import tensorflow as tf
-from tensorflow.config.experimental import list_physical_devices
-from tensorflow.python.client import device_lib
+import matplotlib.pyplot as plt
+from tensorflow.keras.layers.experimental.preprocessing import RandomRotation, RandomContrast
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Dense, Dropout, Bidirectional, LSTM, Layer, BatchNormalization, Lambda, add, concatenate
+from tensorflow.keras import Model, Sequential
+import tensorflow.keras.backend as K
+from tensorflow.keras.optimizers import Adam, SGD
+from build import buildModel, ctc_lambda_func
 
-from tensorflow.strings import unicode_split, reduce_join
-from tensorflow import transpose, cast, shape, ones
-from tensorflow.io import read_file, decode_png
-from tensorflow.image import convert_image_dtype, resize
-from tensorflow.data import Dataset
-
-from tensorflow import keras
-from tensorflow.keras.backend import ctc_batch_cost, ctc_decode
-from tensorflow.keras.models import Model, model_from_json, load_model
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
-from tensorflow.keras.optimizers import Adam
-#from tensorflow.keras import layers
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Dense, Dropout, Bidirectional, LSTM, Layer
-from tensorflow.keras.layers.experimental.preprocessing import StringLookup
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-from functions import split_data
-from build import build_model
-
-"""**Globals**"""
-
-start_global_time = timeit.default_timer()
-
-# Operating System
-OS = platform.system()                    # returns 'Windows', 'Linux', etc
-
-physical_devices= list_physical_devices('GPU')
-print("Number of GPUs", len(physical_devices))
-print("\nCPUs and GPUs details: \n")
-print(device_lib.list_local_devices())
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
 
 
-early_stopping = False
-early_stopping_patience = 10
+data_dir = Path("../images/")
+validation_lp = Path("../validation/")
 
-save_best_model = True
+_jpg = "*.jpg"
+# Find all the images inside the folder (only the name)
+# Split into folder and name
+_, paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
+paths, images = list(paths), list(images)
+_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
+val_paths, val_images = list(val_paths), list(val_images)
 
-best_model_weights_filename = "./cnn_bilstm_ctc_loss_end2end_model.h5"
-best_model_architecture_filename = "./cnn_bilstm_ctc_loss_end2end_model.json"
+# These can be set as hyper-parameters
+img_width = 460
+img_height = 110
+reduction_factor = 4
+# Load inside a TF dataset
 
-left_pad = True
-fill_char = '0'
-fixed_max_length = True
-labels_max_length = 12
-# Desired image dimensions
-img_width = 200
-img_height = 50
-epochs = 20
-batch_size = 128
-data_augmentation = True
-# Factor by which the image is going to be downsampled
-# by the convolutional blocks. We will be using two
-# convolution blocks and each block will have
-# a pooling layer which downsample the features by a factor of 2.
-# Hence total downsampling factor would be 4.
-downsample_factor = 4
-# View
-plot = False
+# Load inside a TF dataset
+dataset = tf.data.Dataset.from_tensor_slices((paths, images))
+val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
 
-data_dir = Path("./images/")
-chinese_lp = Path("./chinese_lp/")
-images = sorted(list(map(str, list(data_dir.glob("*.jpg")))))
-chines_images = sorted(list(map(str, list(chinese_lp.glob("*.jpg")))))
-labelsch = [img.split(os.path.sep)[-1].split(".jpg")[0].split("_")[0].strip().upper() for img in chines_images]
-labels = [img.split(os.path.sep)[-1].split(".jpg")[0].split("_")[0].split(" ")[0].strip().upper() for img in images]
-labels = labels + labelsch
-images = images + chines_images
-max_length = max([len(label) for label in labels])
-characters = sorted(list(set(char for label in labels for char in label)))
+print(f'There are {len(dataset)} training images.')
+print(f'There are {len(val_dataset)} validation images.')
 
-def padLabel(label):
-    return label + "*" * (max_length-len(label))
-labels = [padLabel(label) for label in labels]
+def process_path(image_path, image_name):
+    # Convert the dataset as:
+    # (path) --> (image, label [str], input_len, label_len), 0
+    # input_len is always img_width // reduction_factor, should be changed depending on the model.
+    # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
+    # Load the image and resize
+    img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
+    img = tf.image.decode_jpeg(img, channels=1)
+    img = tf.image.resize(img, [img_height, img_width])
+    img = tf.image.flip_left_right(img)
+    img = tf.cast(img[:,:, 0], tf.float32) / 255.0  # Normalization
+    img = tf.transpose(img, [1, 0])
+    img = img[:, :, tf.newaxis]
+    # Get the label and its length
+    label = tf.strings.split(image_name, '_')[0]
+    label = tf.strings.upper(label)
+    label_len = tf.strings.length(label)
 
-n_output = len(characters) + 2
-# characters.insert(0, "*")
+    return (img, tf.strings.bytes_split(label), img_width // reduction_factor, label_len), tf.zeros(1)
 
-print("Number of images found: ", len(images))
-print("Number of labels found: ", len(labels))
-print("Number of unique characters: ", len(characters))
-print("Characters present: ", characters)
-#print(labels)
-"""**Preprocessing**"""
-# A utility function to decode the output of the network
-def decode_batch_predictions(pred):
-    input_len = np.ones(pred.shape[0]) * pred.shape[1]
-    results = ctc_decode(pred, input_length=input_len, greedy=True)[0][0][:, :max_length]   # Use greedy search. For complex tasks, you can use beam search
-    # Iterate over the results and get back the text
-    output_text = []
-    for res in results:
-        res = reduce_join(num_to_char(res)).numpy().decode("utf-8")
-        output_text.append(res)
-    return output_text
-    
-def plot_dataset(dataset_name, title_plot, dataset, plot_time = 1, plot = False):
-    fig, ax = plt.subplots(4, 4, figsize=(10, 5))
-    fig.suptitle(title_plot, fontsize = 16, fontweight = 'bold')
-    for batch in dataset.take(1):
-        images = batch["image"]
-        labels = batch["label"]
-        for i in range(16):
-            img = (images[i] * 255).numpy().astype("uint8")
-            label = reduce_join(num_to_char(labels[i])).numpy().decode("utf-8")
-            ax[i // 4, i % 4].imshow(img[:, :, 0].T, cmap="gray")
-            ax[i // 4, i % 4].set_title(label)
-            ax[i // 4, i % 4].axis("off")
-    plt.savefig("./"+dataset_name)
-    if plot == True: 
-        plt.show(block=False)
-        plt.pause(plot_time)
-    plt.close()
+# Apply the preprocessing to each image
+dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+# Now we build the dictionary of characters.
+# I am assuming every character we have is valid, but this can be changed accordingly.
+lookup = tf.keras.layers.experimental.preprocessing.StringLookup(
+    num_oov_indices=0, mask_token=None,
+)
+lookup.adapt(dataset.map(lambda xb, _: xb[1], num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE))  # Note: xb[1] is the label
 
+def convert_string(xb, yb):
+    # Simple preprocessing to apply the StringLookup to the label
+    return (xb[0], lookup(xb[1]), xb[2], xb[3]), yb
 
-def encode_single_sample(img_path, label):
-    img = read_file(img_path)                                                           # Read image
-    img = decode_png(img, channels=1)                                                   # Decode and convert to grayscale
-    img = convert_image_dtype(img, tf.float32)                                          # Convert to float32 in [0, 1] range
-    img = resize(img, [img_height, img_width])                                          # Resize to the desired size
-    img = transpose(img, perm=[1, 0, 2])
-    label = char_to_num(unicode_split(label, input_encoding="UTF-8"))
-    return {"image": img, "label": label}
-    
-if data_augmentation == True: 
-    image_gen = ImageDataGenerator(rotation_range=10, width_shift_range=0.1, height_shift_range=0.1, shear_range=0.1, zoom_range=0.1, fill_mode="nearest")
+dataset = dataset.map(convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+val_dataset = val_dataset.map(convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+# opt = Adam()
+opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
+n_output = len(lookup.get_vocabulary())
+training_model, prediction_model = buildModel(img_width, img_height, n_output, opt)
 
-char_to_num = StringLookup(vocabulary=list(characters), num_oov_indices=0, mask_token="*", oov_token="*")          # Mapping characters to integers
-num_to_char = StringLookup(vocabulary=char_to_num.get_vocabulary(), mask_token="*", oov_token="*", invert=True)    # Mapping integers back to original characters
-
-x_train, x_valid_intern, y_train, y_valid_intern = split_data(np.array(images), np.array(labels))
-
-"""## Create `Dataset` objects"""
-train_dataset = Dataset.from_tensor_slices((x_train, y_train))
-train_dataset = (train_dataset.map(encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(batch_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE))
-
-plot_dataset("training_set.jpg", "Sample of Training Set", train_dataset, 2, plot = plot)
-
-internal_validation_dataset = Dataset.from_tensor_slices((x_valid_intern, y_valid_intern))
-internal_validation_dataset = (internal_validation_dataset.map(encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(batch_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE))
- 
-"""**Training**"""
-# Get the deep_model
-deep_model = build_model(n_output, img_width, img_height)
-deep_model.summary()
-
-# Training
+# For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
+train_dataset = dataset.shuffle(1000).padded_batch(32)
+val_dataset = val_dataset.padded_batch(32)
 default_callbacks = []
-
 # Add save best model
-checkPoint = ModelCheckpoint(best_model_weights_filename, save_weights_only=False, monitor = "val_loss", verbose=1, save_best_only=True, mode='min')
-default_callbacks = default_callbacks+[checkPoint]
+checkPoint = ModelCheckpoint("cnn_bilstm_ctc_loss_end2end_model.h5", save_weights_only=False, monitor="val_loss", verbose=1, save_best_only=True, mode='min')
+default_callbacks = default_callbacks + [checkPoint]
 # Add early stopping
-earlyStopping=EarlyStopping(monitor='val_loss', min_delta = 0.001, patience=early_stopping_patience, verbose=0, restore_best_weights = True, mode='min') 
-default_callbacks = default_callbacks+[earlyStopping]
-# Train the deep_model
+lr_reducer = ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001)
+earlyStopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, verbose=0, restore_best_weights=True, mode='min') 
+default_callbacks = default_callbacks + [earlyStopping]
+history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=1, callbacks=default_callbacks)
 
-history = deep_model.fit(train_dataset, validation_data = internal_validation_dataset, epochs = epochs, callbacks = default_callbacks)
 
+for (xb, yb, xb_len, yb_len), _ in val_dataset:
+    print(yb)
+    break
+# Create the inverse lookup
+inv_lookup = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary=lookup.get_vocabulary(), invert=True, mask_token=None)
+y_pred = prediction_model.predict(xb)
+y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimension and remove the first two time-steps
+(y_decoded, _) = tf.nn.ctc_greedy_decoder(y_pred, sequence_length=tf.ones(y_pred.shape[1], dtype=tf.int32)*y_pred.shape[0])
+y_decoded_text = inv_lookup(y_decoded[0])
+results = tf.sparse.to_dense(y_decoded_text)
+print(results)
