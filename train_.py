@@ -14,19 +14,19 @@ chinese_lp = Path("../chinese_lp/")
 validation_lp = Path("../validation/")
 
 _jpg = "*.jpg"
+
+images = sorted(list(map(str, list(data_dir.glob(_jpg)))))
+images1  = sorted(list(map(str, list(chinese_lp.glob(_jpg)))))
 # Split into folder and name
-paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
-paths, images = list(paths), list(images)
-paths1, images1 = zip(*[p.parts for p in chinese_lp.glob(_jpg)])
-paths1, images1 = list(paths1), list(images1)
+# paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
+# paths, images = list(paths), list(images)
+# paths1, images1 = zip(*[p.parts for p in chinese_lp.glob(_jpg)])
+# paths1, images1 = list(paths1), list(images1)
+# paths = paths + paths1
 
-paths = paths + paths1
-images = images + images1
-
-val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
-val_paths, val_images = list(val_paths), list(val_images)
-
-images = images + chines_images
+# val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
+# val_paths, val_images = list(val_paths), list(val_images)
+val_images = sorted(list(map(str, list(validation_lp.glob(_jpg)))))
 
 # These can be set as hyper-parameters
 img_width = 460
@@ -35,19 +35,19 @@ reduction_factor = 4
 # Load inside a TF dataset
 
 # Load inside a TF dataset
-dataset = tf.data.Dataset.from_tensor_slices((paths, images))
-val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
+dataset = tf.data.Dataset.from_tensor_slices(images)
+val_dataset = tf.data.Dataset.from_tensor_slices(val_images)
 
 print(f'There are {len(dataset)} training images.')
 print(f'There are {len(val_dataset)} validation images.')
 
-def process_path(image_path, image_name):
+def process_path(image_path):
     # Convert the dataset as:
     # (path) --> (image, label [str], input_len, label_len), 0
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
     # Load the image and resize
-    img = tf.io.read_file(image_path + os.sep + image_name)
+    img = tf.io.read_file(image_path)
     img = tf.image.decode_jpeg(img, channels=1)
     img = tf.image.resize(img, [img_height, img_width])
     img = tf.image.flip_left_right(img)
