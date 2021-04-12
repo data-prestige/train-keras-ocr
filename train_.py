@@ -13,7 +13,7 @@ gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
-    
+
 data_dir = Path("../images/")
 validation_lp = Path("../validation/")
 
@@ -151,7 +151,7 @@ opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
 training_model.compile(loss={'ctc': lambda _, ctc_loss: ctc_loss}, optimizer=opt)
 
 # For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
-train_dataset = dataset.shuffle(500).padded_batch(32)
+train_dataset = dataset.shuffle(1000).padded_batch(64)
 val_dataset = val_dataset.padded_batch(32)
 
 default_callbacks = []
@@ -165,5 +165,5 @@ lr_reducer = ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001
 earlyStopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, verbose=0, restore_best_weights=True, mode='min') 
 default_callbacks = default_callbacks + [earlyStopping]
 
-history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=20, callbacks=default_callbacks)
+history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=1, callbacks=default_callbacks)
 
