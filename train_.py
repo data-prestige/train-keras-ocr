@@ -49,10 +49,7 @@ def process_path(image_path, image_name):
     img = img[:, :, tf.newaxis]
 
     # Get the label and its length
-    label = tf.strings.split(image_path, '.jp')[0]
-    label = tf.strings.split(label, '_')[0]
-    label = tf.strings.split(label, ' ')[0]
-    label = tf.strings.split(label, '/')[1]
+    label = tf.strings.split(image_name, '_')[0]
     label = tf.strings.upper(label)
     label_len = tf.strings.length(label)
 
