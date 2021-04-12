@@ -40,7 +40,7 @@ def process_path(image_path, image_name):
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
     # Load the image and resize
-    img = tf.io.read_file(image_path)
+    img = tf.io.read_file(image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=1)
     img = tf.image.resize(img, [img_height, img_width])
     img = tf.image.flip_left_right(img)
