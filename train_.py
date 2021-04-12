@@ -1,5 +1,4 @@
-import glob
-import os
+import glob, os
 from pathlib import Path
 import tensorflow as tf
 import matplotlib.pyplot as plt
