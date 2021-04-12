@@ -10,9 +10,9 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam
 from models import CRNN_STN
 
-data_dir = Path("./validation/")
-chinese_lp = Path("./chinese_lp/")
-validation_lp = Path("./validation/")
+data_dir = Path("../validation/")
+chinese_lp = Path("../chinese_lp/")
+validation_lp = Path("../validation/")
 
 _jpg = "*.jpg"
 
