@@ -10,24 +10,17 @@ from tensorflow.keras import Model, Sequential
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam, SGD
 
-data_dir = Path("../validation/")
-chinese_lp = Path("../chinese_lp/")
+data_dir = Path("../images/")
+# data_dir = Path("../chinese_lp/")
 validation_lp = Path("../validation/")
 
 _jpg = "*.jpg"
-
-images = sorted(list(map(str, list(data_dir.glob(_jpg)))))
-images1  = sorted(list(map(str, list(chinese_lp.glob(_jpg)))))
+# Find all the images inside the folder (only the name)
 # Split into folder and name
-# paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
-# paths, images = list(paths), list(images)
-# paths1, images1 = zip(*[p.parts for p in chinese_lp.glob(_jpg)])
-# paths1, images1 = list(paths1), list(images1)
-# paths = paths + paths1
-
-# val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
-# val_paths, val_images = list(val_paths), list(val_images)
-val_images = sorted(list(map(str, list(validation_lp.glob(_jpg)))))
+paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
+paths, images = list(paths), list(images)
+val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
+val_paths, val_images = list(val_paths), list(val_images)
 
 # These can be set as hyper-parameters
 img_width = 460
