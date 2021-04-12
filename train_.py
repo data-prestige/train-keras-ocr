@@ -160,5 +160,5 @@ lr_reducer = ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001
 earlyStopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, verbose=0, restore_best_weights=True, mode='min') 
 default_callbacks = default_callbacks + [earlyStopping]
 
-history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=10, callbacks=default_callbacks)
+history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=20, callbacks=default_callbacks)
 
