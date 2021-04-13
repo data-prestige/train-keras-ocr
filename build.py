@@ -71,8 +71,8 @@ def buildModel(img_width, img_height, n_output, opt):
     # Building a custom training loop (or overriding train_step) would be a much better solution).
     # Basically, this model takes all the inputs and outputs the CTC loss.
     training_model = Model(inputs=[input_img, labels, input_length, label_length], outputs=[ctc_loss], name="end2end_ctc_loss_model")
-
-    # Again, this can be improved... The first parameter here is a sequence of zeros, that we returned in our generator. The second parameter (the output of training_model) is the actual loss.
-    training_model.compile(loss={'ctc': lambda _, ctc_loss: ctc_loss}, optimizer=opt)
+    if opt:
+        # Again, this can be improved... The first parameter here is a sequence of zeros, that we returned in our generator. The second parameter (the output of training_model) is the actual loss.
+        training_model.compile(loss={'ctc': lambda _, ctc_loss: ctc_loss}, optimizer=opt)
 
     return training_model, prediction_model
