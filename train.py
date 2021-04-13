@@ -30,7 +30,7 @@ val_paths, val_images = list(val_paths), list(val_images)
 # These can be set as hyper-parameters
 img_width = 460
 img_height = 110
-reduction_factor = 4
+reduction_factor = 8
 # Load inside a TF dataset
 # Load inside a TF dataset
 dataset = tf.data.Dataset.from_tensor_slices((paths, images))
@@ -82,7 +82,7 @@ default_callbacks = default_callbacks + [checkPoint]
 lr_reducer = ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001)
 earlyStopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, verbose=0, restore_best_weights=True, mode='min') 
 default_callbacks = default_callbacks + [earlyStopping]
-history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=1, callbacks=default_callbacks)
+history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=250, callbacks=default_callbacks)
 
 for (xb, yb, xb_len, yb_len), _ in val_dataset:
     print(yb)

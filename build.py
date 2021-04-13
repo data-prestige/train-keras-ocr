@@ -26,6 +26,7 @@ def buildModel(img_width, img_height, n_output, opt):
     input_img_augmented = augment(input_img)
 
     # The model is adapted from the CRNN here: https://github.com/kurapan/CRNN/blob/master/models.py
+        # The model is adapted from the CRNN here: https://github.com/kurapan/CRNN/blob/master/models.py
     c_1 = Conv2D(64, (3, 3), activation='relu', padding='same', name='conv_1')(input_img_augmented)
     c_2 = Conv2D(128, (3, 3), activation='relu', padding='same', name='conv_2')(c_1)
     c_3 = Conv2D(256, (3, 3), activation='relu', padding='same', name='conv_3')(c_2)
@@ -40,9 +41,10 @@ def buildModel(img_width, img_height, n_output, opt):
     c_6 = Conv2D(512, (3, 3), activation='relu', padding='same', name='conv_6')(p_5)
     c_7 = Conv2D(512, (3, 3), activation='relu', padding='same', name='conv_7')(c_6)
     bn_7 = BatchNormalization(name='bn_7')(c_7)
+    p_8 = MaxPooling2D(pool_size=(2, 2), name='maxpool_8')(bn_7)
 
-    bn_7_shape = bn_7.get_shape()
-    reshape = Reshape(target_shape=(int(bn_7_shape[1]), int(bn_7_shape[2] * bn_7_shape[3])), name='reshape')(bn_7)
+    p_8_shape = p_8.get_shape()
+    reshape = Reshape(target_shape=(int(p_8_shape[1]), int(p_8_shape[2] * p_8_shape[3])), name='reshape')(p_8)
 
     fc_9 = Dense(128, activation='relu', name='fc_9')(reshape)
 
