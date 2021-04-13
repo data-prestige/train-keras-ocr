@@ -61,7 +61,7 @@ val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE)
 val_dataset = val_dataset.map(label_converter.convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 # opt = Adam()
 n_output = label_converter.n_output
-_, prediction_model = buildModel(img_width, img_height, n_output, opt)
+_, prediction_model = buildModel(img_width, img_height, n_output, None)
 
 prediction_model.load_weights("cnn_bilstm_ctc_loss_end2end_model.h5")
 # For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
