@@ -71,6 +71,11 @@ opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
 n_output = label_converter.n_output
 training_model, prediction_model = buildModel(img_width, img_height, n_output, opt)
 
+try:
+    training_model.load_weights("cnn_bilstm_ctc_loss_end2end_model.h5")
+except Exception: print("error loading weights")
+
+
 # For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
 train_dataset = dataset.shuffle(1000).padded_batch(32)
 val_dataset = val_dataset.padded_batch(32)
