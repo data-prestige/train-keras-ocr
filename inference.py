@@ -43,9 +43,9 @@ def process_path(image_path, image_name):
     img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=1)
     img = tf.image.resize(img, [img_height, img_width])
-    img = tf.image.flip_left_right(img)
+    # img = tf.image.flip_left_right(img)
     img = tf.cast(img[:,:, 0], tf.float32) / 255.0  # Normalization
-    img = tf.transpose(img, [1, 0])
+    # img = tf.transpose(img, [1, 0])
     img = img[:, :, tf.newaxis]
     # Get the label and its length
     label = tf.strings.split(image_name, '_')[0]
