@@ -16,6 +16,7 @@ for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
 data_dir = Path("../images/")
+chinese_dir = Path("../chinese_lp/")
 validation_lp = Path("../validation/")
 label_converter = LabelConverter()
 
@@ -24,6 +25,13 @@ _jpg = "*.jpg"
 # Split into folder and name
 _, paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
 paths, images = list(paths), list(images)
+
+_, chinese_paths, chinese_images = zip(*[p.parts for p in chinese_dir.glob(_jpg)])
+chinese_paths, chinese_images = list(chinese_paths), list(chinese_images)
+
+paths = paths + chinese_paths
+images = images + chinese_images
+
 _, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
 val_paths, val_images = list(val_paths), list(val_images)
 
@@ -41,17 +49,23 @@ print(f'There are {len(val_dataset)} validation images.')
 
 def process_path(image_path, image_name):
     # Convert the dataset as:
-    # (path) --> (image, label [str], input_len, label_len), 0
+    # (path, filename) --> (image, label [str], input_len, label_len), 0
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
     # Load the image and resize
-    img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
+    img = tf.io.read_file(image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=1)
     img = tf.image.resize(img, [img_height, img_width])
     img = tf.image.flip_left_right(img)
-    img = tf.cast(img[:,:, 0], tf.float32) / 255.0  # Normalization
+    img = tf.dtypes.cast(img, tf.int32)
+
+    if 'chinese_lp' in image_path:
+        img = bitwise_ops.invert(img)
+    
+    img = tf.cast(img[:, :, 0], tf.float32) / 255.0 # Normalization 
     img = tf.transpose(img, [1, 0])
     img = img[:, :, tf.newaxis]
+    
     # Get the label and its length
     label = tf.strings.split(image_name, '_')[0]
     label = tf.strings.upper(label)
