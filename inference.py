@@ -66,7 +66,7 @@ _, prediction_model = buildModel(img_width, img_height, n_output, None)
 prediction_model.load_weights("cnn_bilstm_ctc_loss_end2end_model.h5")
 # For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
 val_dataset = val_dataset.padded_batch(32)
-
+print(label_converter.lookup.get_vocabulary())
 for (xb, yb, xb_len, yb_len), _ in val_dataset:
     print(yb)
     break
