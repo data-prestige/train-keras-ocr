@@ -30,8 +30,8 @@ paths, images = list(paths), list(images)
 _, chinese_paths, chinese_images = zip(*[p.parts for p in chinese_dir.glob(_jpg)])
 chinese_paths, chinese_images = list(chinese_paths), list(chinese_images)
 
-paths = paths + chinese_paths
-images = images + chinese_images
+# paths = paths + chinese_paths
+# images = images + chinese_images
 
 _, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
 val_paths, val_images = list(val_paths), list(val_images)
@@ -42,11 +42,37 @@ img_height = 110
 reduction_factor = 8
 # Load inside a TF dataset
 # Load inside a TF dataset
-dataset = tf.data.Dataset.from_tensor_slices((paths, images))
+chinese_dataset = tf.data.Dataset.from_tensor_slices((chinese_paths, chinese_images))
+resia_dataset = tf.data.Dataset.from_tensor_slices((paths, images))
 val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
 
-print(f'There are {len(dataset)} training images.')
-print(f'There are {len(val_dataset)} validation images.')
+print(f'There are {len(chinese_dataset)} training chinese images.')
+print(f'There are {len(resia_dataset)} training european images.')
+
+print(f'There are {len(val_dataset)} validation european images.')
+
+
+def process_path_chinese(image_path, image_name):
+    # Convert the dataset as:
+    # (path, filename) --> (image, label [str], input_len, label_len), 0
+    # input_len is always img_width // reduction_factor, should be changed depending on the model.
+    # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
+    # Load the image and resize
+    img = tf.io.read_file(image_path + os.sep + image_name)
+    img = tf.image.decode_jpeg(img, channels=1)
+    img = tf.image.resize(img, [img_height, img_width])
+    img = tf.image.flip_left_right(img)
+    img = tf.dtypes.cast(img, tf.int32)
+    img = bitwise_ops.invert(img) # chinese plates bitwise flip
+    img = tf.cast(img[:, :, 0], tf.float32) / 255.0 # Normalization 
+    img = tf.transpose(img, [1, 0])
+    img = img[:, :, tf.newaxis]
+    # Get the label and its length
+    label = tf.strings.split(image_name, '_')[0]
+    label = tf.strings.upper(label)
+    label_len = tf.strings.length(label)
+
+    return (img, tf.strings.bytes_split(label), img_width // reduction_factor, label_len), tf.zeros(1)
 
 def process_path(image_path, image_name):
     # Convert the dataset as:
@@ -59,14 +85,9 @@ def process_path(image_path, image_name):
     img = tf.image.resize(img, [img_height, img_width])
     img = tf.image.flip_left_right(img)
     img = tf.dtypes.cast(img, tf.int32)
-
-    if 'chinese_lp' in image_path.eval():
-        img = bitwise_ops.invert(img)
-    
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0 # Normalization 
     img = tf.transpose(img, [1, 0])
     img = img[:, :, tf.newaxis]
-    
     # Get the label and its length
     label = tf.strings.split(image_name, '_')[0]
     label = tf.strings.upper(label)
@@ -75,7 +96,11 @@ def process_path(image_path, image_name):
     return (img, tf.strings.bytes_split(label), img_width // reduction_factor, label_len), tf.zeros(1)
 
 # Apply the preprocessing to each image
-dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+chinese_dataset = chinese_dataset.map(process_path_chinese, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+resia_dataset = resia_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+
+dataset = tf.concat([chinese_dataset, resia_dataset], axis=0)
+
 val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 # Now we build the dictionary of characters.
 # I am assuming every character we have is valid, but this can be changed accordingly.
