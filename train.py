@@ -86,6 +86,7 @@ history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=
 
 for (xb, yb, xb_len, yb_len), _ in val_dataset:
     print(yb)
+    print(xb)
     break
 # Create the inverse lookup
 y_pred = prediction_model.predict(xb)
@@ -94,3 +95,4 @@ y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimensio
 y_decoded_text = label_converter.inv_lookup(y_decoded[0])
 results = tf.sparse.to_dense(y_decoded_text)
 print(results)
+print("allora")
