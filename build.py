@@ -5,7 +5,7 @@ from CTCLayer import CTCLayer
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model, Sequential
-
+from custom_metrics import BinaryTruePositives, EditDistance
 
 # This is taken from: https://github.com/kurapan/CRNN/blob/master/models.py
 def ctc_lambda_func(args):
@@ -17,17 +17,17 @@ def ctc_lambda_func(args):
     
 
 def buildModel(img_width, img_height, n_output, opt):
-    augment = Sequential([
-        RandomContrast(0.1),
-        RandomRotation(0.1)
-    ])
+    # augment = Sequential([
+    #     RandomContrast(0.1),
+    #     RandomRotation(0.1)
+    # ])
     # Model for prediction
-    input_img = Input((img_width, img_height, 1))
-    input_img_augmented = augment(input_img)
+    input_img = Input((img_height, img_width, 1))
+    # input_img_augmented = augment(input_img)
 
     # The model is adapted from the CRNN here: https://github.com/kurapan/CRNN/blob/master/models.py
         # The model is adapted from the CRNN here: https://github.com/kurapan/CRNN/blob/master/models.py
-    c_1 = Conv2D(64, (3, 3), activation='relu', padding='same', name='conv_1')(input_img_augmented)
+    c_1 = Conv2D(64, (3, 3), activation='relu', padding='same', name='conv_1')(input_img)
     c_2 = Conv2D(128, (3, 3), activation='relu', padding='same', name='conv_2')(c_1)
     c_3 = Conv2D(256, (3, 3), activation='relu', padding='same', name='conv_3')(c_2)
     bn_3 = BatchNormalization(name='bn_3')(c_3)
@@ -75,6 +75,6 @@ def buildModel(img_width, img_height, n_output, opt):
     training_model = Model(inputs=[input_img, labels, input_length, label_length], outputs=[ctc_loss], name="end2end_ctc_loss_model")
     if opt:
         # Again, this can be improved... The first parameter here is a sequence of zeros, that we returned in our generator. The second parameter (the output of training_model) is the actual loss.
-        training_model.compile(loss={'ctc': lambda _, ctc_loss: ctc_loss}, optimizer=opt)
+        training_model.compile(loss={'ctc': lambda _, ctc_loss: ctc_loss}, optimizer=opt, metrics=[EditDistance()])
 
     return training_model, prediction_model

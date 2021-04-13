@@ -48,7 +48,6 @@ val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
 
 print(f'There are {len(chinese_dataset)} training chinese images.')
 print(f'There are {len(resia_dataset)} training european images.')
-
 print(f'There are {len(val_dataset)} validation european images.')
 
 
@@ -61,11 +60,11 @@ def process_path_chinese(image_path, image_name):
     img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=1)
     img = tf.image.resize(img, [img_height, img_width])
-    img = tf.image.flip_left_right(img)
+    # img = tf.image.flip_left_right(img)
     img = tf.dtypes.cast(img, tf.int32)
     img = bitwise_ops.invert(img) # chinese plates bitwise flip
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0 # Normalization 
-    img = tf.transpose(img, [1, 0])
+    # img = tf.transpose(img, [1, 0])
     img = img[:, :, tf.newaxis]
     # Get the label and its length
     label = tf.strings.split(image_name, '_')[0]
@@ -83,10 +82,10 @@ def process_path(image_path, image_name):
     img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=1)
     img = tf.image.resize(img, [img_height, img_width])
-    img = tf.image.flip_left_right(img)
+    # img = tf.image.flip_left_right(img)
     img = tf.dtypes.cast(img, tf.int32)
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0 # Normalization 
-    img = tf.transpose(img, [1, 0])
+    # img = tf.transpose(img, [1, 0])
     img = img[:, :, tf.newaxis]
     # Get the label and its length
     label = tf.strings.split(image_name, '_')[0]
