@@ -8,8 +8,8 @@ from PIL import Image
 def loadImg(path):
         plate_image = cv2.imread(path)
         license_plate, alpha, beta = automatic_brightness_and_contrast(plate_image)
-        #if len(license_plate.shape) == 3:
-        license_plate = cv2.cvtColor(license_plate, cv2.COLOR_BGR2GRAY)
+        if len(license_plate.shape) == 3:
+            license_plate = cv2.cvtColor(license_plate, cv2.COLOR_BGR2GRAY)
         adaptive = apply_adaptive_threshold(license_plate)
         binary = cv2.threshold(adaptive, 80, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
         kernel4 = getKernelBasedOnMedianValue(np.median(license_plate.ravel()))
