@@ -76,3 +76,4 @@ y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimensio
 (y_decoded, _) = tf.nn.ctc_greedy_decoder(y_pred, sequence_length=tf.ones(y_pred.shape[1], dtype=tf.int32)*y_pred.shape[0])
 y_decoded_text = label_converter.inv_lookup(y_decoded[0])
 results = tf.sparse.to_dense(y_decoded_text)
+print(results)

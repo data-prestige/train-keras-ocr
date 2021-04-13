@@ -86,7 +86,6 @@ history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=
 
 for (xb, yb, xb_len, yb_len), _ in val_dataset:
     print(yb)
-    print(xb)
     break
 # Create the inverse lookup
 y_pred = prediction_model.predict(xb)
