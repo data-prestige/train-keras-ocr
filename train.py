@@ -10,6 +10,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam, SGD
 from build import buildModel, ctc_lambda_func
 from vocabolary import LabelConverter
+from tensorflow.python.ops import bitwise_ops
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
@@ -59,7 +60,7 @@ def process_path(image_path, image_name):
     img = tf.image.flip_left_right(img)
     img = tf.dtypes.cast(img, tf.int32)
 
-    if 'chinese_lp' in image_path:
+    if 'chinese_lp' in image_path.eval():
         img = bitwise_ops.invert(img)
     
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0 # Normalization 
