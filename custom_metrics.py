@@ -31,9 +31,8 @@ class BinaryTruePositives(tf.keras.metrics.Metric):
 
 
 class EditDistance(tf.keras.metrics.Metric):
-
     def __init__(self, name='edit_distance', **kwargs):
-        super(EditDistancePositives, self).__init__(name=name, **kwargs)
+        super(EditDistance, self).__init__(name=name, **kwargs)
         self.edit_distance = self.add_weight(name='ed', initializer='zeros')
 
     def update_state(self, y_true, y_pred, sample_weight=None):
