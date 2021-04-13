@@ -10,22 +10,50 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam, SGD
 from build import buildModel, ctc_lambda_func
 from vocabolary import LabelConverter
+from cv_functions import loadImg
+
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
-data_dir = Path("../images/")
-validation_lp = Path("../validation/")
+data_dir = Path("./images/")
+validation_lp = Path("./validation/")
+chinese_lp = Path("./chinese_lp/")
+
 label_converter = LabelConverter()
 
 _jpg = "*.jpg"
 # Find all the images inside the folder (only the name)
 # Split into folder and name
-_, paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
-paths, images = list(paths), list(images)
-_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
-val_paths, val_images = list(val_paths), list(val_images)
+# _, paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
+# paths, images = list(paths), list(images)
+# _, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
+# val_paths, val_images = list(val_paths), list(val_images)
+
+# Split into folder and name
+_, paths, names = zip(*[p.parts for p in data_dir.glob(_jpg)])
+paths, names = list(paths), list(names)
+images = []
+for i, image in enumerate(names):
+    images.append(loadImg(paths[i]+"/"+image))
+
+_, chinese_paths, chinese_names = zip(*[p.parts for p in chinese_lp.glob(_jpg)])
+chinese_paths, chinese_names = list(chinese_paths), list(chinese_names)
+chinese_images = []
+for i, image in enumerate(chinese_names):
+    chinese_images.append(loadImg(chinese_paths[i]+"/"+image))
+
+paths = paths + list(chinese_paths)
+names = names + list(chinese_names)
+images = images + chinese_images
+
+_, val_paths, val_names = zip(*[p.parts for p in validation_lp.glob(_jpg)])
+val_paths, val_names = list(val_paths), list(val_names)
+val_images = []
+for i, image in enumerate(val_names):
+    val_images.append(loadImg(val_paths[i] + "/" + image))
+    
 
 # These can be set as hyper-parameters
 img_width = 460
@@ -39,19 +67,34 @@ val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
 print(f'There are {len(dataset)} training images.')
 print(f'There are {len(val_dataset)} validation images.')
 
-def process_path(image_path, image_name):
-    # Convert the dataset as:
-    # (path) --> (image, label [str], input_len, label_len), 0
-    # input_len is always img_width // reduction_factor, should be changed depending on the model.
-    # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
-    # Load the image and resize
-    img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
-    img = tf.image.decode_jpeg(img, channels=1)
+# def process_path(image_path, image_name):
+#     # Convert the dataset as:
+#     # (path) --> (image, label [str], input_len, label_len), 0
+#     # input_len is always img_width // reduction_factor, should be changed depending on the model.
+#     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
+#     # Load the image and resize
+#     img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
+#     img = tf.image.decode_jpeg(img, channels=1)
+#     img = tf.image.resize(img, [img_height, img_width])
+#     img = tf.image.flip_left_right(img)
+#     img = tf.cast(img[:,:, 0], tf.float32) / 255.0  # Normalization
+#     img = tf.transpose(img, [1, 0])
+#     img = img[:, :, tf.newaxis]
+#     # Get the label and its length
+#     label = tf.strings.split(image_name, '_')[0]
+#     label = tf.strings.upper(label)
+#     label_len = tf.strings.length(label)
+
+#     return (img, tf.strings.bytes_split(label), img_width // reduction_factor, label_len), tf.zeros(1)
+
+def process_path(image_name, img):
     img = tf.image.resize(img, [img_height, img_width])
     img = tf.image.flip_left_right(img)
-    img = tf.cast(img[:,:, 0], tf.float32) / 255.0  # Normalization
+    img = tf.cast(img[:, :, 0], tf.float32) / 255.0 # Normalization
+    #img = tf.image.convert_image_dtype(img, dtype=tf.float32, saturate=True)
     img = tf.transpose(img, [1, 0])
     img = img[:, :, tf.newaxis]
+
     # Get the label and its length
     label = tf.strings.split(image_name, '_')[0]
     label = tf.strings.upper(label)
