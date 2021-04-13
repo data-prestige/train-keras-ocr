@@ -99,7 +99,7 @@ def process_path(image_path, image_name):
 chinese_dataset = chinese_dataset.map(process_path_chinese, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 resia_dataset = resia_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
-dataset = tf.concat([chinese_dataset, resia_dataset], axis=0)
+dataset = tf.stack([chinese_dataset, resia_dataset])
 
 val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 # Now we build the dictionary of characters.
