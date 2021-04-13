@@ -37,13 +37,13 @@ paths, names = list(paths), list(names)
 images = []
 for i, image in enumerate(names):
     print(paths[i]+"/"+image)
-    images.append(loadImg(paths[i]+"/"+image))
+    images.append(loadImg("../"+paths[i]+"/"+image))
 
 _, chinese_paths, chinese_names = zip(*[p.parts for p in chinese_lp.glob(_jpg)])
 chinese_paths, chinese_names = list(chinese_paths), list(chinese_names)
 chinese_images = []
 for i, image in enumerate(chinese_names):
-    chinese_images.append(loadImg(chinese_paths[i]+"/"+image))
+    chinese_images.append(loadImg("../"+chinese_paths[i]+"/"+image))
 
 paths = paths + list(chinese_paths)
 names = names + list(chinese_names)
@@ -53,7 +53,7 @@ _, val_paths, val_names = zip(*[p.parts for p in validation_lp.glob(_jpg)])
 val_paths, val_names = list(val_paths), list(val_names)
 val_images = []
 for i, image in enumerate(val_names):
-    val_images.append(loadImg(val_paths[i] + "/" + image))
+    val_images.append(loadImg("../"+val_paths[i] + "/" + image))
     
 
 # These can be set as hyper-parameters
