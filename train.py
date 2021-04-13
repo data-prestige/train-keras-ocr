@@ -36,7 +36,6 @@ _, paths, names = zip(*[p.parts for p in data_dir.glob(_jpg)])
 paths, names = list(paths), list(names)
 images = []
 for i, image in enumerate(names):
-    print(paths[i]+"/"+image)
     images.append(loadImg("../"+paths[i]+"/"+image))
 
 _, chinese_paths, chinese_names = zip(*[p.parts for p in chinese_lp.glob(_jpg)])
