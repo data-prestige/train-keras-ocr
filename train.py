@@ -9,14 +9,15 @@ from tensorflow.keras import Model, Sequential
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam, SGD
 from build import buildModel, ctc_lambda_func
+from vocabolary import LabelConverter
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
-
 data_dir = Path("../images/")
 validation_lp = Path("../validation/")
+label_converter = LabelConverter()
 
 _jpg = "*.jpg"
 # Find all the images inside the folder (only the name)
@@ -31,7 +32,6 @@ img_width = 460
 img_height = 110
 reduction_factor = 4
 # Load inside a TF dataset
-
 # Load inside a TF dataset
 dataset = tf.data.Dataset.from_tensor_slices((paths, images))
 val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
@@ -64,20 +64,11 @@ dataset = dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetc
 val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 # Now we build the dictionary of characters.
 # I am assuming every character we have is valid, but this can be changed accordingly.
-lookup = tf.keras.layers.experimental.preprocessing.StringLookup(
-    num_oov_indices=0, mask_token=None,
-)
-lookup.adapt(dataset.map(lambda xb, _: xb[1], num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE))  # Note: xb[1] is the label
-
-def convert_string(xb, yb):
-    # Simple preprocessing to apply the StringLookup to the label
-    return (xb[0], lookup(xb[1]), xb[2], xb[3]), yb
-
-dataset = dataset.map(convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
-val_dataset = val_dataset.map(convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+dataset = dataset.map(label_converter.convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+val_dataset = val_dataset.map(label_converter.convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 # opt = Adam()
 opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
-n_output = len(lookup.get_vocabulary())
+n_output = label_converter.n_output
 training_model, prediction_model = buildModel(img_width, img_height, n_output, opt)
 
 # For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
@@ -91,9 +82,7 @@ default_callbacks = default_callbacks + [checkPoint]
 lr_reducer = ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001)
 earlyStopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, verbose=0, restore_best_weights=True, mode='min') 
 default_callbacks = default_callbacks + [earlyStopping]
-history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=20, callbacks=default_callbacks)
-
-inv_lookup = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary=lookup.get_vocabulary(), invert=True, mask_token=None)
+history = training_model.fit(train_dataset, validation_data=val_dataset, epochs=100, callbacks=default_callbacks)
 
 for (xb, yb, xb_len, yb_len), _ in val_dataset:
     print(yb)
@@ -102,6 +91,6 @@ for (xb, yb, xb_len, yb_len), _ in val_dataset:
 y_pred = prediction_model.predict(xb)
 y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimension and remove the first two time-steps
 (y_decoded, _) = tf.nn.ctc_greedy_decoder(y_pred, sequence_length=tf.ones(y_pred.shape[1], dtype=tf.int32)*y_pred.shape[0])
-y_decoded_text = inv_lookup(y_decoded[0])
+y_decoded_text = label_converter.inv_lookup(y_decoded[0])
 results = tf.sparse.to_dense(y_decoded_text)
 print(results)

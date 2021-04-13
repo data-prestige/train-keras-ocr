@@ -1,132 +1,78 @@
-
-import os
-import platform
-import re
-import shutil
-import pdb
-import glob
-import cv2
-import timeit
-import numpy as np
-import matplotlib.pyplot as plt
+import glob, os
 from pathlib import Path
-from tensorflow.data import Dataset
-from tensorflow.strings import unicode_split, reduce_join
-from tensorflow.keras.layers.experimental.preprocessing import StringLookup
-from functions import split_data
-from tensorflow.image import convert_image_dtype, resize
-from tensorflow import transpose, cast, shape, ones
-
-"""**Inference**"""
-import timeit
 import tensorflow as tf
-from tensorflow.keras.models import Model, model_from_json, load_model
-from CTCLayer import CTCLayer
-# from train import decode_batch_predictions, reduce_join, encode_single_sample, num_to_char, split_data
-from functions import plot_predictions
-from tensorflow.io import read_file, decode_png
-from tensorflow.keras.backend import ctc_batch_cost, ctc_decode
+import matplotlib.pyplot as plt
+from tensorflow.keras.layers.experimental.preprocessing import RandomRotation, RandomContrast
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Reshape, Dense, Dropout, Bidirectional, LSTM, Layer, BatchNormalization, Lambda, add, concatenate
+from tensorflow.keras import Model, Sequential
+import tensorflow.keras.backend as K
+from tensorflow.keras.optimizers import Adam, SGD
+from build import buildModel, ctc_lambda_func
+from vocabolary import LabelConverter
 
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
 
-img_width = 200
-img_height = 50
-batch_size = 16
+validation_lp = Path("../validation/")
+label_converter = LabelConverter()
 
-def decode_batch_predictions(pred):
-    input_len = np.ones(pred.shape[0]) * pred.shape[1]
-    results = ctc_decode(pred, input_length=input_len, greedy=True)[0][0][:, :max_length]   # Use greedy search. For complex tasks, you can use beam search
-    # Iterate over the results and get back the text
-    output_text = []
-    for res in results:
-        res = reduce_join(num_to_char(res)).numpy().decode("utf-8")
-        output_text.append(res)
-    return output_text
-    
-def plot_dataset(dataset_name, title_plot, dataset, plot_time = 1, plot = False):
-    fig, ax = plt.subplots(4, 4, figsize=(10, 5))
-    fig.suptitle(title_plot, fontsize = 16, fontweight = 'bold')
-    for batch in dataset.take(1):
-        images = batch["image"]
-        labels = batch["label"]
-        for i in range(16):
-            img = (images[i] * 255).numpy().astype("uint8")
-            label = reduce_join(num_to_char(labels[i])).numpy().decode("utf-8")
-            ax[i // 4, i % 4].imshow(img[:, :, 0].T, cmap="gray")
-            ax[i // 4, i % 4].set_title(label)
-            ax[i // 4, i % 4].axis("off")
-    plt.savefig("./"+dataset_name)
-    if plot == True: 
-        plt.show(block=False)
-        plt.pause(plot_time)
-    plt.close()
+_jpg = "*.jpg"
+# Find all the images inside the folder (only the name)
+# Split into folder and name
+_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
+val_paths, val_images = list(val_paths), list(val_images)
 
+# These can be set as hyper-parameters
+img_width = 460
+img_height = 110
+reduction_factor = 4
+# Load inside a TF dataset
+# Load inside a TF dataset
+val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
 
-def encode_single_sample(img_path, label):
-    img = read_file(img_path)                                                           # Read image
-    img = decode_png(img, channels=1)                                                   # Decode and convert to grayscale
-    img = convert_image_dtype(img, tf.float32)                                          # Convert to float32 in [0, 1] range
-    img = resize(img, [img_height, img_width])                                          # Resize to the desired size
-    img = transpose(img, perm=[1, 0, 2])
-    label = char_to_num(unicode_split(label, input_encoding="UTF-8"))                   # Map the characters in label to numbers
-    return {"image": img, "label": label}
+print(f'There are {len(val_dataset)} validation images.')
 
-best_model_weights_filename = "./cnn_bilstm_ctc_loss_end2end_model.h5"
+def process_path(image_path, image_name):
+    # Convert the dataset as:
+    # (path) --> (image, label [str], input_len, label_len), 0
+    # input_len is always img_width // reduction_factor, should be changed depending on the model.
+    # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
+    # Load the image and resize
+    img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
+    img = tf.image.decode_jpeg(img, channels=1)
+    img = tf.image.resize(img, [img_height, img_width])
+    img = tf.image.flip_left_right(img)
+    img = tf.cast(img[:,:, 0], tf.float32) / 255.0  # Normalization
+    img = tf.transpose(img, [1, 0])
+    img = img[:, :, tf.newaxis]
+    # Get the label and its length
+    label = tf.strings.split(image_name, '_')[0]
+    label = tf.strings.upper(label)
+    label_len = tf.strings.length(label)
 
-data_dir = Path("./validation/")
-# Get list of all the images
-images = sorted(list(map(str, list(data_dir.glob("*.jpg")))))
-labels = [img.split(os.path.sep)[-1].split(".jpg")[0].split("_")[0].split(" ")[0].strip().upper() for img in images]
-max_length = max([len(label) for label in labels])
-characters = sorted(list(set(char for label in labels for char in label)))
+    return (img, tf.strings.bytes_split(label), img_width // reduction_factor, label_len), tf.zeros(1)
 
-def padLabel(label):
-    return label + "*" * (max_length-len(label))
-labels = [padLabel(label) for label in labels]
+# Apply the preprocessing to each image
+val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+# Now we build the dictionary of characters.
+# I am assuming every character we have is valid, but this can be changed accordingly.
+val_dataset = val_dataset.map(label_converter.convert_string, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+# opt = Adam()
+n_output = label_converter.n_output
+_, prediction_model = buildModel(img_width, img_height, n_output, opt)
 
-n_output = len(characters) + 1
-# characters.insert(0, "*")
+prediction_model.load_weights("cnn_bilstm_ctc_loss_end2end_model.h5")
+# For the training dataset, we apply shuffling and batching. Any data augmentation should go here.
+val_dataset = val_dataset.padded_batch(32)
 
-
-char_to_num = StringLookup(vocabulary=list(characters), num_oov_indices=0, mask_token="*", oov_token="*")          # Mapping characters to integers
-num_to_char = StringLookup(vocabulary=char_to_num.get_vocabulary(), mask_token="*", oov_token="*", invert=True)    # Mapping integers back to original characters
-
-
-x_train, x_valid_intern, y_train, y_valid_intern = split_data(np.array(images), np.array(labels))
-
-internal_validation_dataset = Dataset.from_tensor_slices((x_valid_intern, y_valid_intern))
-internal_validation_dataset = (internal_validation_dataset.map(encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE).batch(batch_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE))
- 
-# Inference
-deep_model = load_model(best_model_weights_filename, custom_objects = {'CTCLayer': CTCLayer})
-  
-# Get the prediction deep_model by extracting layers till the output layer
-prediction_model = Model(deep_model.get_layer(name="image").input, deep_model.get_layer(name="dense2").output)    # dense2 becomes the output
-
-start_infer_time = timeit.default_timer()
-#  Let's check results on some validation samples
-for batch in internal_validation_dataset.take(1):
-    batch_images = batch["image"]
-    batch_labels = batch["label"]
-
-    preds = prediction_model.predict(batch_images)
-    pred_texts = decode_batch_predictions(preds)
-
-    orig_texts = []
-    for label in batch_labels:
-        label = reduce_join(num_to_char(label)).numpy().decode("utf-8")
-        orig_texts.append(label)
-    
-print(orig_texts)
-print(pred_texts)
-
-internal_matchs = len([w for w in pred_texts if w in orig_texts])
-internal_acc = internal_matchs / len(orig_texts)
-internal_title1 = "\nNumber of matches between predictions and ground truth on Internal Validation Set: "+str(internal_matchs)+"\n"
-internal_title2 = "Accuracy on Internal Validation Set: " +  str(int(internal_acc * 100)) + "%\n\n"
-print(internal_title1)
-print(internal_title2)
-
-plot_predictions("predictions_internal.jpg", internal_title2, internal_validation_dataset, pred_texts, 2, plot = False)
-
-end_infer_time = timeit.default_timer()
-print("Inference Time: ", (end_infer_time - start_infer_time) / 60.0)
+for (xb, yb, xb_len, yb_len), _ in val_dataset:
+    print(yb)
+    break
+# Create the inverse lookup
+y_pred = prediction_model.predict(xb)
+y_pred = tf.transpose(y_pred, [1, 0, 2])[2:,:,:]  # Transpose the first dimension and remove the first two time-steps
+(y_decoded, _) = tf.nn.ctc_greedy_decoder(y_pred, sequence_length=tf.ones(y_pred.shape[1], dtype=tf.int32)*y_pred.shape[0])
+y_decoded_text = label_converter.inv_lookup(y_decoded[0])
+results = tf.sparse.to_dense(y_decoded_text)
