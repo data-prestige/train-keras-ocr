@@ -29,7 +29,7 @@ val_paths, val_images = list(val_paths), list(val_images)
 
 img_width = 200
 img_height = 31
-batch_size = 32
+batch_size = 8
 
 # Load inside a TF dataset
 dataset = tf.data.Dataset.from_tensor_slices((paths, images))
@@ -93,13 +93,13 @@ recognizer = keras_ocr.recognition.Recognizer(alphabet=lookup.get_vocabulary(), 
 recognizer = keras_ocr.recognition.Recognizer(alphabet=lookup.get_vocabulary())
 
 # Check variables are not freezed
-for p in recognizer.training_model.variables:
-  print(p.trainable)
+# for p in recognizer.training_model.variables:
+#   print(p.trainable)
 
 # Version with fully pre-trained weigths and original vocabulary
 recognizer = keras_ocr.recognition.Recognizer()
 
-recognizer.alphabet
+print(recognizer.alphabet)
 
 # This is a terrible hack because we are going back to NumPy only to move back to TensorFlow :-(
 def train_gen():
@@ -114,13 +114,9 @@ def val_gen():
 train_data_gen = recognizer.get_batch_generator(train_gen(), batch_size=batch_size, lowercase=True)
 val_data_gen = recognizer.get_batch_generator(val_gen(), batch_size=batch_size, lowercase=True)
 
-for xb, yb in train_data_gen:
-  print('A')
-  break
 
 # xb, yb are basically the same as our code... Maybe we can reuse that part of the code?
 # These generators are more or less equivalent to those we build in our notebook.
-
 training_steps = len(dataset) // batch_size
 validation_steps = len(val_dataset) // batch_size
 
