@@ -19,7 +19,7 @@ import keras_ocr
 # Find all the images inside the folder (only the name)
 
 data_dir = Path("../images/")
-validation_lp = Path("../validation/")
+validation_lp = Path("../images/")
 
 # Split into folder and name
 _, paths, images = zip(*[p.parts for p in data_dir.glob("*.jpg")])
