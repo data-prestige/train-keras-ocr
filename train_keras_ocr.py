@@ -4,7 +4,11 @@ import tensorflow as tf
 import keras_ocr
 
 # Find all the images inside the folder (only the name)
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
 
+    
 data_dir = Path("../images/")
 validation_lp = Path("../validation/")
 
