@@ -8,7 +8,7 @@ gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
-    
+
 data_dir = Path("../images/")
 validation_lp = Path("../validation/")
 
@@ -74,6 +74,9 @@ def val_gen():
 train_data_gen = recognizer.get_batch_generator(train_gen(), batch_size=batch_size)
 val_data_gen = recognizer.get_batch_generator(val_gen(), batch_size=batch_size)        
 
+for xb, yb in train_data_gen:
+  print('A')
+  break
 # xb, yb are basically the same as our code... Maybe we can reuse that part of the code?
 # These generators are more or less equivalent to those we build in our notebook.
 
