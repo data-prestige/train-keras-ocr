@@ -49,7 +49,9 @@ def process_path(image_path, image_name):
     # img = tf.cast(img[:, :, :], tf.int8)
 
     # Get the label and its length
-    label = tf.strings.split(image_name, '_')[0]
+    label = tf.strings.split(image_name, '.jpg')[0]
+    label = tf.strings.split(label, '_')[0]
+    label = tf.strings.split(label, ' ')[0]
     label = tf.strings.upper(label)
 
     return img, label
