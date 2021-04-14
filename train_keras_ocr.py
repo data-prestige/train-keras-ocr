@@ -83,7 +83,7 @@ callbacks = [
     tf.keras.callbacks.ModelCheckpoint('recognizer_borndigital.h5', monitor='val_loss', save_best_only=True),
     tf.keras.callbacks.CSVLogger('recognizer_borndigital.csv')
 ]
-recognizer.training_model.fit_generator(
+recognizer.training_model.fit(
     generator=train_data_gen,
     steps_per_epoch=training_steps,
     validation_steps=validation_steps,
