@@ -20,7 +20,7 @@ val_paths, val_images = list(val_paths), list(val_images)
 
 img_width = 460
 img_height = 110
-batch_size = 8
+batch_size = 32
 
 # Load inside a TF dataset
 dataset = tf.data.Dataset.from_tensor_slices((paths, images))
