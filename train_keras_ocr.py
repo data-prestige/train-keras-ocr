@@ -5,13 +5,13 @@ import keras_ocr
 
 # Find all the images inside the folder (only the name)
 
-data_dir = Path("./images/")
-validation_lp = Path("./validation/")
+data_dir = Path("../images/")
+validation_lp = Path("../validation/")
 
 # Split into folder and name
-paths, images = zip(*[p.parts for p in data_dir.glob("*.jpg")])
+_, paths, images = zip(*[p.parts for p in data_dir.glob("*.jpg")])
 paths, images = list(paths), list(images)
-val_paths, val_images = zip(*[p.parts for p in validation_lp.glob("*.jpg")])
+_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob("*.jpg")])
 val_paths, val_images = list(val_paths), list(val_images)
 
 img_width = 460
@@ -28,7 +28,7 @@ def process_path(image_path, image_name):
     # Convert the dataset as:
     # (path, filename) --> (image, label [str])
     # Load the image and resize
-    img = tf.io.read_file(image_path + os.sep + image_name)
+    img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width])
 
