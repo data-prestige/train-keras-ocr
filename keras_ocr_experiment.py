@@ -136,7 +136,7 @@ recognizer.training_model.fit_generator(
     validation_steps=validation_steps,
     validation_data=val_data_gen,
     callbacks=callbacks,
-    epochs=1,
+    epochs=100,
 )
 
 for xb, yb in dataset:
