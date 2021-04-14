@@ -11,14 +11,16 @@ import glob, os
 from pathlib import Path
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from vocabolary import LabelConverter
 
 import keras_ocr
+label_converter = LabelConverter()
 
 """## Data loading (tf.data)"""
 
 # Find all the images inside the folder (only the name)
 
-data_dir = Path("../images/")
+data_dir = Path("../validation/")
 validation_lp = Path("../validation/")
 
 # Split into folder and name
@@ -69,13 +71,10 @@ for xb, yb in dataset:
 
 # Now we build the dictionary of characters.
 # I am assuming every character we have is valid, but this can be changed accordingly.
-lookup = tf.keras.layers.experimental.preprocessing.StringLookup(
-    num_oov_indices=0, mask_token=None,
-)
-lookup.adapt(dataset.map(lambda _, yb: tf.strings.bytes_split(yb)))
+
 
 # Check the vocabulary
-print(lookup.get_vocabulary())
+print(label_converter.lookup.get_vocabulary())
 
 """## Build and train the keras-ocr recognizer"""
 
@@ -86,58 +85,24 @@ build_params['width'] = img_width
 build_params['height'] = img_height
 
 # Version with custom vocabulary
-recognizer = keras_ocr.recognition.Recognizer(alphabet=lookup.get_vocabulary(), weights=None,
-                                             build_params=build_params)
-
-# Version with custom vocabulary and pretrained weights
-recognizer = keras_ocr.recognition.Recognizer(alphabet=lookup.get_vocabulary())
-
-# Check variables are not freezed
-# for p in recognizer.training_model.variables:
-#   print(p.trainable)
-
-# Version with fully pre-trained weigths and original vocabulary
-recognizer = keras_ocr.recognition.Recognizer()
-
+recognizer = keras_ocr.recognition.Recognizer(alphabet=label_converter.lookup.get_vocabulary(), weights=None, build_params=build_params)
+recognizer.prediction_model.load_weights("recognizer_borndigital.h5")
 print(recognizer.alphabet)
-
-# This is a terrible hack because we are going back to NumPy only to move back to TensorFlow :-(
-def train_gen():
-  for xb, yb in dataset.repeat():
-    yield xb.numpy(), str(yb.numpy(), 'utf-8')
 
 def val_gen():
   for xb, yb in val_dataset.repeat():
     yield xb.numpy(), str(yb.numpy(), 'utf-8')
 
 # For models 1-2, remove lowercase
-train_data_gen = recognizer.get_batch_generator(train_gen(), batch_size=batch_size, lowercase=True)
 val_data_gen = recognizer.get_batch_generator(val_gen(), batch_size=batch_size, lowercase=True)
-
 
 # xb, yb are basically the same as our code... Maybe we can reuse that part of the code?
 # These generators are more or less equivalent to those we build in our notebook.
-training_steps = len(dataset) // batch_size
 validation_steps = len(val_dataset) // batch_size
 
-print(training_steps)
 print(validation_steps)
 
 recognizer.compile()
-
-callbacks = [
-    tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=10, restore_best_weights=False),
-    tf.keras.callbacks.ModelCheckpoint('recognizer_borndigital.h5', monitor='val_loss', save_best_only=True),
-    tf.keras.callbacks.CSVLogger('recognizer_borndigital.csv')
-]
-recognizer.training_model.fit_generator(
-    generator=train_data_gen,
-    steps_per_epoch=training_steps,
-    validation_steps=validation_steps,
-    validation_data=val_data_gen,
-    callbacks=callbacks,
-    epochs=100,
-)
 
 for xb, yb in dataset:
   plt.figure()
