@@ -57,9 +57,9 @@ print(f'There are {len(chinese_dataset)} training chinese images.')
 print(f'There are {len(resia_dataset)} training european images.')
 print(f'There are {len(val_dataset)} validation european images.')
 
-augment = keras.Sequential([
-        keras.layers.experimental.preprocessing.RandomContrast(0.1),
-        keras.layers.experimental.preprocessing.RandomRotation(0.1)
+augment = tf.keras.Sequential([
+         tf.keras.layers.experimental.preprocessing.RandomContrast(0.1),
+         tf.keras.layers.experimental.preprocessing.RandomRotation(0.1)
     ])
 
 def process_chinese_path(image_path, image_name):
@@ -100,7 +100,7 @@ def process_path(image_path, image_name):
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
     img = img[:, :, tf.newaxis]
     img = augment(img)
-    
+
     # Get the label and its length
     label = tf.strings.split(image_name, '.jpg')[0]
     label = tf.strings.split(label, '_')[0]
