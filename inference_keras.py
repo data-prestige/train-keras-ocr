@@ -113,7 +113,7 @@ for xb, yb in dataset:
   label = yb.numpy().decode("utf-8")
   labels.append(label)
   eq = prediction == label
-  print(prediction, label, eq)
+  # print(prediction, label, eq)
 
 external_match = len([w for w in predictions if w in labels])
 acc = external_match / len(labels) * 100
