@@ -168,7 +168,7 @@ model.load_weights(
                                               sha256=weights_dict['weights']['top']['sha256']))
 
 
-training_model.compile(loss=lambda _, y_pred: y_pred, optimizer='rmsprop')
+training_model.compile(loss=lambda _, y_pred: y_pred, optimizer='adam') #'rmsprop'
 
 callbacks = [
     EditDistanceCallback(prediction_model, val_dataset, batch_size),
