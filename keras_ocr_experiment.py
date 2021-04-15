@@ -105,7 +105,7 @@ def process_path(image_path, image_name):
 
 
 # Apply the preprocessing to each image
-chinese_dataset = chinese_dataset.map(process_path_chinese, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+chinese_dataset = chinese_dataset.map(process_chinese_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 resia_dataset = resia_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
 dataset = chinese_dataset.concatenate(resia_dataset)
@@ -126,7 +126,7 @@ print(label_converter.lookup.get_vocabulary())
 
 def convert_string(xb, yb):
     # Simple preprocessing to apply the StringLookup to the label
-    return (xb[0], lookup(xb[1]), xb[2], xb[3]), yb
+    return (xb[0], label_converter.lookup(xb[1]), xb[2], xb[3]), yb
 
 dataset = dataset.map(convert_string)
 val_dataset = val_dataset.map(convert_string)
