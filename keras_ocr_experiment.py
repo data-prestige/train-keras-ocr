@@ -62,7 +62,6 @@ augment = tf.keras.Sequential([
          tf.keras.layers.experimental.preprocessing.RandomRotation(0.1)
     ])
 
-# augmentations = [flip, color, zoom, rotate]
 
 def process_chinese_path(image_path, image_name):
     # Convert the dataset as:
@@ -72,6 +71,7 @@ def process_chinese_path(image_path, image_name):
 
     # Load the image and resize
     img = tf.io.read_file(".."+ os.sep+image_path + os.sep + image_name)
+    img = augment(img)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     img = tf.dtypes.cast(img, tf.int32)
@@ -96,7 +96,8 @@ def process_path(image_path, image_name):
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
 
     # Load the image and resize
-    img = tf.io.read_file(".."+ os.sep+image_path + os.sep + image_name)
+    img = tf.io.read_file(".." + os.sep + image_path + os.sep + image_name)
+    img = augment(img)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
@@ -117,9 +118,6 @@ chinese_dataset = chinese_dataset.map(process_chinese_path, num_parallel_calls=t
 resia_dataset = resia_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
 dataset = chinese_dataset.concatenate(resia_dataset)
-# Add the augmentations to the dataset
-# Apply the augmentation, run 4 jobs in parallel.
-dataset = dataset.map(augment, num_parallel_calls=4)
 
 val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
