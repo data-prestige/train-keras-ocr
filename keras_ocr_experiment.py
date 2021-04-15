@@ -178,12 +178,22 @@ callbacks = [
     tf.keras.callbacks.ModelCheckpoint('recognizer_borndigital.h5', monitor='val_loss', save_best_only=True),
     tf.keras.callbacks.CSVLogger('recognizer_borndigital.csv')
 ]
-training_model.fit(
-    dataset.shuffle(1000).padded_batch(batch_size, padded_shapes=padded_shapes),
+
+datagen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=2.0,
+                width_shift_range=5.0, height_shift_range=5.0, shear_range=4.0, zoom_range=0.1)
+
+training_model.fit_generator(
+    datagen.flow(dataset.shuffle(1000).padded_batch(batch_size, padded_shapes=padded_shapes)),
     validation_data=val_dataset.padded_batch(batch_size, padded_shapes=padded_shapes),
     callbacks=callbacks,
-    epochs=1000,
-)
+    epochs=1000)
+
+# training_model.fit(
+#     dataset.shuffle(1000).padded_batch(batch_size, padded_shapes=padded_shapes),
+#     validation_data=val_dataset.padded_batch(batch_size, padded_shapes=padded_shapes),
+#     callbacks=callbacks,
+#     epochs=1000,
+# )
 
 """## Decoding"""
 y_pred = prediction_model.predict(xb)
