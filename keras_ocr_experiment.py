@@ -11,11 +11,12 @@ import glob, os
 from pathlib import Path
 import tensorflow as tf
 import matplotlib.pyplot as plt
-
 import keras_ocr
+from tensorflow.python.ops import bitwise_ops
 
 from vocabolary import LabelConverter
-from tensorflow.python.ops import bitwise_ops
+from EditDistanceCallback import EditDistanceCallback
+
 """## Data loading (tf.data)"""
 
 # Find all the images inside the folder (only the name)
@@ -170,6 +171,7 @@ model.load_weights(
 training_model.compile(loss=lambda _, y_pred: y_pred, optimizer='rmsprop')
 
 callbacks = [
+    EditDistanceCallback(),
     tf.keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001, min_delta=0.1),
     tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=10, restore_best_weights=False),
     tf.keras.callbacks.ModelCheckpoint('recognizer_borndigital.h5', monitor='val_loss', save_best_only=True),
