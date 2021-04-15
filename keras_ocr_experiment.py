@@ -71,15 +71,14 @@ def process_chinese_path(image_path, image_name):
 
     # Load the image and resize
     img = tf.io.read_file(".."+ os.sep+image_path + os.sep + image_name)
-    img = augment(img)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    img = tf.image.random_contrast(img, 0, 0.1)
+    img = tf.image.random_rotation(img, 0, 0.1)
     img = tf.dtypes.cast(img, tf.int32)
     img = bitwise_ops.invert(img) # chinese plates bitwise flip
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
     img = img[:,:, tf.newaxis]
-    
-
     # Get the label and its length
     label = tf.strings.split(image_name, '.jpg')[0]
     label = tf.strings.split(label, '_')[0]
@@ -97,9 +96,10 @@ def process_path(image_path, image_name):
 
     # Load the image and resize
     img = tf.io.read_file(".." + os.sep + image_path + os.sep + image_name)
-    img = augment(img)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    img = tf.image.random_contrast(img, 0, 0.1)
+    img = tf.image.random_rotation(img, 0, 0.1)
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
     img = img[:, :, tf.newaxis]
 
@@ -111,7 +111,6 @@ def process_path(image_path, image_name):
     label_len = tf.strings.length(label)
 
     return (img, tf.strings.bytes_split(label), img_width // reduction_factor - 2, label_len), tf.zeros(1)
-
 
 # Apply the preprocessing to each image
 chinese_dataset = chinese_dataset.map(process_chinese_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
@@ -128,8 +127,6 @@ for (xb, yb, _, yb_len), _ in dataset:
     break
 
 """## Build the lookup dictionary"""
-
-
 # Check the vocabulary
 print(label_converter.lookup.get_vocabulary())
 
