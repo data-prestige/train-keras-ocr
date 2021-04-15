@@ -182,8 +182,10 @@ callbacks = [
 datagen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=2.0,
                 width_shift_range=5.0, height_shift_range=5.0, shear_range=4.0, zoom_range=0.1)
 
+train_generator = datagen.flow(dataset, batch_size=batch_size)
+        
 training_model.fit_generator(
-    datagen.flow(dataset.shuffle(1000).padded_batch(batch_size, padded_shapes=padded_shapes)),
+    train_generator,
     validation_data=val_dataset.padded_batch(batch_size, padded_shapes=padded_shapes),
     callbacks=callbacks,
     epochs=1000)
