@@ -57,6 +57,11 @@ print(f'There are {len(chinese_dataset)} training chinese images.')
 print(f'There are {len(resia_dataset)} training european images.')
 print(f'There are {len(val_dataset)} validation european images.')
 
+augment = keras.Sequential([
+        keras.layers.experimental.preprocessing.RandomContrast(0.1),
+        keras.layers.experimental.preprocessing.RandomRotation(0.1)
+    ])
+
 def process_chinese_path(image_path, image_name):
     # Convert the dataset as:
     # (path, filename) --> (image, label [str], input_len, label_len), 0
@@ -70,7 +75,8 @@ def process_chinese_path(image_path, image_name):
     img = tf.dtypes.cast(img, tf.int32)
     img = bitwise_ops.invert(img) # chinese plates bitwise flip
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
-    img = img[:, :, tf.newaxis]
+    img = img[:,:, tf.newaxis]
+    img = augment(img)
 
     # Get the label and its length
     label = tf.strings.split(image_name, '.jpg')[0]
@@ -93,7 +99,8 @@ def process_path(image_path, image_name):
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
     img = img[:, :, tf.newaxis]
-
+    img = augment(img)
+    
     # Get the label and its length
     label = tf.strings.split(image_name, '.jpg')[0]
     label = tf.strings.split(label, '_')[0]
@@ -179,23 +186,12 @@ callbacks = [
     tf.keras.callbacks.CSVLogger('recognizer_borndigital.csv')
 ]
 
-datagen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=2.0,
-                width_shift_range=5.0, height_shift_range=5.0, shear_range=4.0, zoom_range=0.1)
-
-train_generator = datagen.flow(dataset, batch_size=batch_size)
-        
-training_model.fit_generator(
-    train_generator,
+training_model.fit(
+    dataset.shuffle(1000).padded_batch(batch_size, padded_shapes=padded_shapes),
     validation_data=val_dataset.padded_batch(batch_size, padded_shapes=padded_shapes),
     callbacks=callbacks,
-    epochs=1000)
-
-# training_model.fit(
-#     dataset.shuffle(1000).padded_batch(batch_size, padded_shapes=padded_shapes),
-#     validation_data=val_dataset.padded_batch(batch_size, padded_shapes=padded_shapes),
-#     callbacks=callbacks,
-#     epochs=1000,
-# )
+    epochs=1000,
+)
 
 """## Decoding"""
 y_pred = prediction_model.predict(xb)
