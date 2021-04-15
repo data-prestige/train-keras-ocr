@@ -46,7 +46,7 @@ val_paths, val_images = list(val_paths), list(val_images)
 img_width = 200
 img_height = 31
 reduction_factor = 4
-batch_size = 8
+batch_size = 32
 
 # Load inside a TF dataset
 chinese_dataset = tf.data.Dataset.from_tensor_slices((chinese_paths, chinese_images))
@@ -68,14 +68,10 @@ def process_chinese_path(image_path, image_name):
     # (path, filename) --> (image, label [str], input_len, label_len), 0
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
-
     # Load the image and resize
     img = tf.io.read_file(".."+ os.sep+image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-    # img = tf.image.random_contrast(img, 0, 0.1)
-    # img = tf.image.random_flip_left_right(img, 0.1)
-    # img = tf.image.random_flip_up_down(img, 0.1)
     img = tf.dtypes.cast(img, tf.int32)
     img = bitwise_ops.invert(img) # chinese plates bitwise flip
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
@@ -94,17 +90,12 @@ def process_path(image_path, image_name):
     # (path, filename) --> (image, label [str], input_len, label_len), 0
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
-
     # Load the image and resize
     img = tf.io.read_file(".." + os.sep + image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-    # img = tf.image.random_contrast(img, 0, 0.1)
-    # img = tf.image.random_flip_left_right(img, 0.1)
-    # img = tf.image.random_flip_up_down(img, 0.1)
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
     img = img[:, :, tf.newaxis]
-
     # Get the label and its length
     label = tf.strings.split(image_name, '.jpg')[0]
     label = tf.strings.split(label, '_')[0]
@@ -117,9 +108,7 @@ def process_path(image_path, image_name):
 # Apply the preprocessing to each image
 chinese_dataset = chinese_dataset.map(process_chinese_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 resia_dataset = resia_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
-
 dataset = chinese_dataset.concatenate(resia_dataset)
-
 val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
 for (xb, yb, _, yb_len), _ in dataset:
@@ -181,7 +170,7 @@ model.load_weights(
 training_model.compile(loss=lambda _, y_pred: y_pred, optimizer='rmsprop')
 
 callbacks = [
-    tf.keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001, min_delta=0.01),
+    tf.keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001, min_delta=0.1),
     tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=10, restore_best_weights=False),
     tf.keras.callbacks.ModelCheckpoint('recognizer_borndigital.h5', monitor='val_loss', save_best_only=True),
     tf.keras.callbacks.CSVLogger('recognizer_borndigital.csv')
