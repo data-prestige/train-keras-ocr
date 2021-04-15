@@ -169,9 +169,11 @@ model.load_weights(
                                               filename=weights_dict['weights']['top']['filename'],
                                               sha256=weights_dict['weights']['top']['sha256']))
 
+
 training_model.compile(loss=lambda _, y_pred: y_pred, optimizer='rmsprop')
 
 callbacks = [
+    tf.keras.callbacks.ReduceLROnPlateau(factor=0.1, patience=3, verbose=1, min_lr=0.00001),
     tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=10, restore_best_weights=False),
     tf.keras.callbacks.ModelCheckpoint('recognizer_borndigital.h5', monitor='val_loss', save_best_only=True),
     tf.keras.callbacks.CSVLogger('recognizer_borndigital.csv')
@@ -184,7 +186,6 @@ training_model.fit(
 )
 
 """## Decoding"""
-
 y_pred = prediction_model.predict(xb)
 
 alphabet = keras_ocr.recognition.DEFAULT_ALPHABET

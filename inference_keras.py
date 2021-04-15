@@ -74,7 +74,7 @@ for xb, yb in dataset:
 
 
 # Check the vocabulary
-print(label_converter.lookup.get_vocabulary())
+# print(label_converter.lookup.get_vocabulary())
 
 """## Build and train the keras-ocr recognizer"""
 
@@ -87,7 +87,7 @@ build_params['height'] = img_height
 # Version with custom vocabulary
 recognizer = keras_ocr.recognition.Recognizer(alphabet=label_converter.lookup.get_vocabulary(), weights=None, build_params=build_params)
 recognizer.prediction_model.load_weights("recognizer_borndigital.h5")
-print(recognizer.alphabet)
+# print(recognizer.alphabet)
 
 def val_gen():
   for xb, yb in val_dataset.repeat():
@@ -100,13 +100,23 @@ val_data_gen = recognizer.get_batch_generator(val_gen(), batch_size=batch_size, 
 # These generators are more or less equivalent to those we build in our notebook.
 validation_steps = len(val_dataset) // batch_size
 
-print(validation_steps)
+# print(validation_steps)
 
 recognizer.compile()
-
+predictions = []
+labels=[]
 for xb, yb in dataset:
   plt.figure()
   plt.imshow(xb.numpy())
-  print(recognizer.recognize(xb.numpy()))
+  prediction = recognizer.recognize(xb.numpy())
+  predictions.append(prediction)
+  label = yb.numpy().decode("utf-8")
+  labels.append(label)
+  eq = prediction == label
+  print(prediction, label, eq)
 
-recognizer.recognize(xb.numpy())
+external_match = len([w for w in predictions if w in labels])
+acc = external_match / len(labels) * 100
+
+print(external_match, acc)
+# recognizer.recognize(xb.numpy())
