@@ -74,7 +74,8 @@ def process_chinese_path(image_path, image_name):
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     img = tf.image.random_contrast(img, 0, 0.1)
-    img = tf.image.random_rotation(img, 0, 0.1)
+    img = tf.image.random_flip_left_right(img, 0, 0.1)
+    img = tf.image.random_flip_up_down(img, 0, 0.1)
     img = tf.dtypes.cast(img, tf.int32)
     img = bitwise_ops.invert(img) # chinese plates bitwise flip
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
@@ -99,7 +100,8 @@ def process_path(image_path, image_name):
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     img = tf.image.random_contrast(img, 0, 0.1)
-    img = tf.image.random_rotation(img, 0, 0.1)
+    img = tf.image.random_flip_left_right(img, 0, 0.1)
+    img = tf.image.random_flip_up_down(img, 0, 0.1)
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
     img = img[:, :, tf.newaxis]
 
