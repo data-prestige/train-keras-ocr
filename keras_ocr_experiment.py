@@ -14,134 +14,185 @@ import matplotlib.pyplot as plt
 
 import keras_ocr
 
+from vocabolary import LabelConverter
+from tensorflow.python.ops import bitwise_ops
 """## Data loading (tf.data)"""
 
 # Find all the images inside the folder (only the name)
 
+
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
+
 data_dir = Path("../images/")
+chinese_dir = Path("../chinese_lp/")
 validation_lp = Path("../validation/")
+label_converter = LabelConverter()
 
 # Split into folder and name
-_, paths, images = zip(*[p.parts for p in data_dir.glob("*.jpg")])
+_jpg = "*.jpg"
+# Find all the images inside the folder (only the name)
+# Split into folder and name
+_, paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
 paths, images = list(paths), list(images)
-_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob("*.jpg")])
+
+_, chinese_paths, chinese_images = zip(*[p.parts for p in chinese_dir.glob(_jpg)])
+chinese_paths, chinese_images = list(chinese_paths), list(chinese_images)
+
+_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
 val_paths, val_images = list(val_paths), list(val_images)
 
 img_width = 200
 img_height = 31
+reduction_factor = 4
 batch_size = 8
 
 # Load inside a TF dataset
-dataset = tf.data.Dataset.from_tensor_slices((paths, images))
+chinese_dataset = tf.data.Dataset.from_tensor_slices((chinese_paths, chinese_images))
+resia_dataset = tf.data.Dataset.from_tensor_slices((paths, images))
 val_dataset = tf.data.Dataset.from_tensor_slices((val_paths, val_images))
 
-print(f'There are {len(dataset)} training images.')
-print(f'There are {len(val_dataset)} validation images.')
+print(f'There are {len(chinese_dataset)} training chinese images.')
+print(f'There are {len(resia_dataset)} training european images.')
+print(f'There are {len(val_dataset)} validation european images.')
 
-def process_path(image_path, image_name):
+def process_chinese_path(image_path, image_name):
     # Convert the dataset as:
-    # (path, filename) --> (image, label [str])
+    # (path, filename) --> (image, label [str], input_len, label_len), 0
+    # input_len is always img_width // reduction_factor, should be changed depending on the model.
+    # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
 
     # Load the image and resize
-    img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
+    img = tf.io.read_file(image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-    # img = tf.cast(img[:, :, :], tf.int8)
+    img = tf.dtypes.cast(img, tf.int32)
+    img = bitwise_ops.invert(img) # chinese plates bitwise flip
+    img = tf.cast(img[:, :, 0], tf.float32) / 255.0
+    img = img[:, :, tf.newaxis]
 
     # Get the label and its length
     label = tf.strings.split(image_name, '.jpg')[0]
     label = tf.strings.split(label, '_')[0]
     label = tf.strings.split(label, ' ')[0]
     label = tf.strings.upper(label)
+    label_len = tf.strings.length(label)
 
-    return img, label
+    return (img, tf.strings.bytes_split(label), img_width // reduction_factor - 2, label_len), tf.zeros(1)
+
+def process_path(image_path, image_name):
+    # Convert the dataset as:
+    # (path, filename) --> (image, label [str], input_len, label_len), 0
+    # input_len is always img_width // reduction_factor, should be changed depending on the model.
+    # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
+
+    # Load the image and resize
+    img = tf.io.read_file(image_path + os.sep + image_name)
+    img = tf.image.decode_jpeg(img, channels=3)
+    img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+    img = tf.cast(img[:, :, 0], tf.float32) / 255.0
+    img = img[:, :, tf.newaxis]
+
+    # Get the label and its length
+    label = tf.strings.split(image_name, '.jpg')[0]
+    label = tf.strings.split(label, '_')[0]
+    label = tf.strings.split(label, ' ')[0]
+    label = tf.strings.upper(label)
+    label_len = tf.strings.length(label)
+
+    return (img, tf.strings.bytes_split(label), img_width // reduction_factor - 2, label_len), tf.zeros(1)
+
 
 # Apply the preprocessing to each image
-dataset = dataset.map(process_path)
-val_dataset = val_dataset.map(process_path)
+chinese_dataset = chinese_dataset.map(process_path_chinese, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+resia_dataset = resia_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
-for xb, yb in dataset:
-    plt.imshow(xb.numpy())
+dataset = chinese_dataset.concatenate(resia_dataset)
+
+val_dataset = val_dataset.map(process_path, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+
+for (xb, yb, _, yb_len), _ in dataset:
+    plt.imshow(xb.numpy()[:, :, 0])
     print(yb)
+    print(yb_len)
     break
 
 """## Build the lookup dictionary"""
 
-# Now we build the dictionary of characters.
-# I am assuming every character we have is valid, but this can be changed accordingly.
-lookup = tf.keras.layers.experimental.preprocessing.StringLookup(
-    num_oov_indices=0, mask_token=None,
-)
-lookup.adapt(dataset.map(lambda _, yb: tf.strings.bytes_split(yb)))
 
 # Check the vocabulary
-print(lookup.get_vocabulary())
+print(label_converter.lookup.get_vocabulary())
 
-"""## Build and train the keras-ocr recognizer"""
+def convert_string(xb, yb):
+    # Simple preprocessing to apply the StringLookup to the label
+    return (xb[0], lookup(xb[1]), xb[2], xb[3]), yb
 
-# Overwrite default width and height.
-# Note: if you use the default ones, we might be able to use the pretrained weights.
-build_params = keras_ocr.recognition.DEFAULT_BUILD_PARAMS 
-build_params['width'] = img_width
-build_params['height'] = img_height
+dataset = dataset.map(convert_string)
+val_dataset = val_dataset.map(convert_string)
 
-# Version with custom vocabulary
-recognizer = keras_ocr.recognition.Recognizer(alphabet=lookup.get_vocabulary(), weights=None,
-                                             build_params=build_params)
+for (xb, yb, xb_len, yb_len), _ in dataset:
+    print(yb)
+    break
 
-# Version with custom vocabulary and pretrained weights
-recognizer = keras_ocr.recognition.Recognizer(alphabet=lookup.get_vocabulary())
+# padded_batch can be used to pad the label appropriately.
+# The other values should not require padding.
+padded_shapes=(
+                ((None, None, None), 
+                (img_width // reduction_factor - 2, ), 
+                (), 
+                ()), (None,))
+for (xb, yb, xb_len, yb_len), _ in dataset.padded_batch(batch_size, 
+                                            padded_shapes=padded_shapes):
+    print(xb.shape)
+    print(yb.shape)
+    print(xb_len.shape)
+    print(yb_len.shape)
+    break
 
-# Check variables are not freezed
-# for p in recognizer.training_model.variables:
-#   print(p.trainable)
+"""## Build the model"""
 
-# Version with fully pre-trained weigths and original vocabulary
-recognizer = keras_ocr.recognition.Recognizer()
+BUILD_PARAMS = keras_ocr.recognition.DEFAULT_BUILD_PARAMS
+print(BUILD_PARAMS)
 
-print(recognizer.alphabet)
+backbone, model, training_model, prediction_model = keras_ocr.recognition.build_model(
+            alphabet=keras_ocr.recognition.DEFAULT_ALPHABET, **BUILD_PARAMS)
 
-# This is a terrible hack because we are going back to NumPy only to move back to TensorFlow :-(
-def train_gen():
-  for xb, yb in dataset.repeat():
-    yield xb.numpy(), str(yb.numpy(), 'utf-8')
+xb.shape
 
-def val_gen():
-  for xb, yb in val_dataset.repeat():
-    yield xb.numpy(), str(yb.numpy(), 'utf-8')
+training_model.summary()
 
-# For models 1-2, remove lowercase
-train_data_gen = recognizer.get_batch_generator(train_gen(), batch_size=batch_size, lowercase=True)
-val_data_gen = recognizer.get_batch_generator(val_gen(), batch_size=batch_size, lowercase=True)
+# Load the pretrained weights
+weights_dict = keras_ocr.recognition.PRETRAINED_WEIGHTS['kurapan']
+model.load_weights(
+                    keras_ocr.tools.download_and_verify(url=weights_dict['weights']['top']['url'],
+                                              filename=weights_dict['weights']['top']['filename'],
+                                              sha256=weights_dict['weights']['top']['sha256']))
 
-
-# xb, yb are basically the same as our code... Maybe we can reuse that part of the code?
-# These generators are more or less equivalent to those we build in our notebook.
-training_steps = len(dataset) // batch_size
-validation_steps = len(val_dataset) // batch_size
-
-print(training_steps)
-print(validation_steps)
-
-recognizer.compile()
+training_model.compile(loss=lambda _, y_pred: y_pred, optimizer='rmsprop')
 
 callbacks = [
     tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=10, restore_best_weights=False),
     tf.keras.callbacks.ModelCheckpoint('recognizer_borndigital.h5', monitor='val_loss', save_best_only=True),
     tf.keras.callbacks.CSVLogger('recognizer_borndigital.csv')
 ]
-recognizer.training_model.fit_generator(
-    generator=train_data_gen,
-    steps_per_epoch=training_steps,
-    validation_steps=validation_steps,
-    validation_data=val_data_gen,
+training_model.fit(
+    dataset.shuffle(1000).padded_batch(batch_size, padded_shapes=padded_shapes),
+    validation_data=val_dataset.padded_batch(batch_size, padded_shapes=padded_shapes),
     callbacks=callbacks,
-    epochs=100,
+    epochs=1000,
 )
 
-for xb, yb in dataset:
-  plt.figure()
-  plt.imshow(xb.numpy())
-  print(recognizer.recognize(xb.numpy()))
+"""## Decoding"""
 
-recognizer.recognize(xb.numpy())
+y_pred = prediction_model.predict(xb)
+
+alphabet = keras_ocr.recognition.DEFAULT_ALPHABET
+blank_label_idx = len(alphabet)
+
+predictions = [''.join([
+            alphabet[idx] for idx in y_hat
+            if idx not in [blank_label_idx, -1]
+        ]) for y_hat in y_pred]
+
+print(predictions)
