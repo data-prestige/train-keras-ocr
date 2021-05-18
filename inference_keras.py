@@ -11,7 +11,7 @@ label_converter = LabelConverter()
 validation_lp = Path("./test/")
 
 # Split into folder and name
-_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob("*.jpg")])
+val_paths, val_images = zip(*[p.parts for p in validation_lp.glob("*.jpg")])
 val_paths, val_images = list(val_paths), list(val_images)
 
 img_width = 200
@@ -28,7 +28,7 @@ def process_path(image_path, image_name):
     # (path, filename) --> (image, label [str])
 
     # Load the image and resize
-    img = tf.io.read_file(".."+ os.sep +image_path + os.sep + image_name)
+    img = tf.io.read_file("."+ os.sep +image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     # img = tf.cast(img[:, :, :], tf.int8)

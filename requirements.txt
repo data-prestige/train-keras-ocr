@@ -1,3 +1,4 @@
 keras-ocr
 tensorflow
 opencv-python
+Levenshtein

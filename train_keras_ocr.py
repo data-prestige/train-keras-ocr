@@ -33,13 +33,13 @@ label_converter = LabelConverter()
 _jpg = "*.jpg"
 # Find all the images inside the folder (only the name)
 # Split into folder and name
-_, paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
+paths, images = zip(*[p.parts for p in data_dir.glob(_jpg)])
 paths, images = list(paths), list(images)
 
-_, chinese_paths, chinese_images = zip(*[p.parts for p in chinese_dir.glob(_jpg)])
+chinese_paths, chinese_images = zip(*[p.parts for p in chinese_dir.glob(_jpg)])
 chinese_paths, chinese_images = list(chinese_paths), list(chinese_images)
 
-_, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
+val_paths, val_images = zip(*[p.parts for p in validation_lp.glob(_jpg)])
 val_paths, val_images = list(val_paths), list(val_images)
 
 img_width = 200
@@ -68,7 +68,7 @@ def process_chinese_path(image_path, image_name):
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
     # Load the image and resize
-    img = tf.io.read_file(".."+ os.sep+image_path + os.sep + image_name)
+    img = tf.io.read_file("."+ os.sep+image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     img = tf.dtypes.cast(img, tf.int32)
@@ -90,7 +90,7 @@ def process_path(image_path, image_name):
     # input_len is always img_width // reduction_factor, should be changed depending on the model.
     # The last 0 is there only for compatibility w.r.t. .fit(). It is ignored afterwards.
     # Load the image and resize
-    img = tf.io.read_file(".." + os.sep + image_path + os.sep + image_name)
+    img = tf.io.read_file("." + os.sep + image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     img = tf.cast(img[:, :, 0], tf.float32) / 255.0
