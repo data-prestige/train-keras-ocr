@@ -26,9 +26,9 @@ gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
-data_dir = Path("../images/")
-chinese_dir = Path("../chinese_lp/")
-validation_lp = Path("../validation/")
+data_dir = Path("./images/")
+chinese_dir = Path("./chinese_lp/")
+validation_lp = Path("./validation/")
 label_converter = LabelConverter()
 
 # Split into folder and name

@@ -8,7 +8,7 @@ import keras_ocr
 label_converter = LabelConverter()
 
 # Find all the images inside the folder (only the name)
-validation_lp = Path("../eval/")
+validation_lp = Path("./test/")
 
 # Split into folder and name
 _, val_paths, val_images = zip(*[p.parts for p in validation_lp.glob("*.jpg")])
