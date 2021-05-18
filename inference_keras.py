@@ -77,7 +77,7 @@ for xb, yb in val_dataset:
   eq = prediction == label
   if eq:
     correct += 1
-  # print(prediction, label, eq)
+  else: print(prediction, label, eq)
 
 # external_match = len([w for w in predictions if w in labels])
 acc = correct / len(labels) * 100
