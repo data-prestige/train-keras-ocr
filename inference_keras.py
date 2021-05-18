@@ -26,13 +26,11 @@ print(f'There are {len(val_dataset)} validation images.')
 def process_path(image_path, image_name):
     # Convert the dataset as:
     # (path, filename) --> (image, label [str])
-
     # Load the image and resize
     img = tf.io.read_file("."+ os.sep +image_path + os.sep + image_name)
     img = tf.image.decode_jpeg(img, channels=3)
     img = tf.image.resize(img, [img_height, img_width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
     # img = tf.cast(img[:, :, :], tf.int8)
-
     # Get the label and its length
     label = tf.strings.split(image_name, '.jpg')[0]
     label = tf.strings.split(label, '_')[0]
@@ -84,5 +82,5 @@ for xb, yb in val_dataset:
 # external_match = len([w for w in predictions if w in labels])
 acc = correct / len(labels) * 100
 
-print(correct, acc)
+print("targhe correttamente lette:{}, accuratezza: {}".format(correct, acc))
 # recognizer.recognize(xb.numpy())
